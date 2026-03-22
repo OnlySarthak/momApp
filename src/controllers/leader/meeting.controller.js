@@ -1,14 +1,16 @@
 const meeting = require("../../models/Meeting");
+const meetingQueue = require("../queues/meeting.queue");
 
-// Create a new meeting
+// Create a new meeting when uploaded
 exports.createMeeting = async (req, res) => {
     try {
-        const { title, description, date, time } = req.body;
+        const { title, description, date, time,audioFileUrl } = req.body;
         const newMeeting = new meeting({
             title,
             description,
             date,
-            time
+            time,
+            audioFileUrl
         });
         const savedMeeting = await newMeeting.save();
         res.status(201).json(savedMeeting);
@@ -16,6 +18,7 @@ exports.createMeeting = async (req, res) => {
         res.status(500).json({ message: "Error creating meeting", error });
     }
 };
+
 
 // Get all meetings
 exports.getMeetings = async (req, res) => {

@@ -64,10 +64,17 @@ const meetingSchema = new mongoose.Schema(
       index: true,
     },
 
-    status: {
+    processingStage: {
       type: String,
-      enum: ["scheduled", "processing", "completed"],
-      default: "scheduled",
+      enum: [
+        "uploaded",
+        "transcribing",
+        "refining",
+        "summarizing",
+        "completed",
+        "failed"
+      ],
+      default: "uploaded"
     },
 
     participants: [participantSchema],

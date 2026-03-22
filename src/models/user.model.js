@@ -1,5 +1,7 @@
 // models/user.model.js
 const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
+const { JWT_SECRET } = process.env;
 
 const userSchema = new mongoose.Schema(
   {
@@ -39,7 +41,8 @@ userSchema.methods.generateAuthToken = function () {
     {
       _id: user._id,
       email: user.email,
-      systemRole: user.systemRole
+      systemRole: user.systemRole,
+      workspaceId: user.workspaceId
     },
     JWT_SECRET,
     { expiresIn: "7d" }
