@@ -9,18 +9,14 @@ exports.registerAdmin = async (req, res) => {
         //need worskspace id from cookies
         const { name, email, password } = req.body;
         const systemRole = "admin";
-
         const workspaceId = req.cookies.workspaceId;
+        const workspace = await workspaceModel.findById(workspaceId);
 
-        if (!name || !email || !password) {
-            return res.status(400).json({ message: "Name, email, and password are required." });
-        }
+        // Validate input
+        await validateRegisterAdminData(name, email, password,workspace);
 
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: "Email already in use." });
-        }
-
+        //create user and save to database
+        // Hash the password
         const passwordHash = await bcrypt.hash(password, 10);
 
         const newAdmin = new User({
@@ -40,10 +36,6 @@ exports.registerAdmin = async (req, res) => {
         });
 
         // update worspace with the created by field as the admin user id
-        const workspace = await workspaceModel.findById(workspaceId);
-        if (!workspace) {
-            return res.status(404).json({ message: "Workspace not found." });
-        }
         workspace.createdBy = newAdmin._id;
         await workspace.save();
 
@@ -56,24 +48,20 @@ exports.registerAdmin = async (req, res) => {
         });
     } catch (error) {
         console.error("Admin registration error:", error);
-        res.status(500).json({ message: "Server error during admin registration." });
+        res.status(500).json({ message: error.message || "Server error during admin registration." });
     }
 };
 
+//all users are on bench as they are not in any team
 exports.register = async (req, res) => {
     try {
         //need to proviide workspace id in the body of the request
-        const { name, email, password, systemRole, workspaceId } = req.body;
+        const { name, email, password } = req.body;
+        const systemRole = "bench";
+        const workspaceId = req.user.workspaceId;
 
         // Validate input
-        if (!name || !email || !password || !systemRole || !workspaceId) {
-            return res.status(400).json({ message: "Name, email, password, system role, and workspace ID are required." });
-        }
-
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: "Email already in use." });
-        }
+        await validateRegisterData(req.body);
 
         // Hash the password
         const passwordHash = await bcrypt.hash(password, 10);
@@ -91,7 +79,6 @@ exports.register = async (req, res) => {
         await newUser.save();
 
         // no need to set cookie here as it is for admin user only 
-
         res.status(201).json({ message: "User registered successfully." ,
             user: {
                 email: newUser.email,
@@ -102,7 +89,7 @@ exports.register = async (req, res) => {
         });
     } catch (error) {
         console.error("Registration error:", error);
-        res.status(500).json({ message: "Server error during registration." });
+        res.status(500).json({ message: error.message || "Server error during registration." });
     }
 };
 
@@ -110,12 +97,12 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
+        const user = await User.findOne({ email });
 
         if (!email || !password) {
             return res.status(400).json({ message: "Email and password are required." });
         }
 
-        const user = await User.findOne({ email });
         if (!user) {
             return res.status(400).json({ message: "Invalid email or password." });
         }   
@@ -140,13 +127,18 @@ exports.login = async (req, res) => {
     }
     catch (error) {
         console.error("Login error:", error);
-        res.status(500).json({ message: "Server error during login." });
+        res.status(500).json({ message: error.message || "Server error during login." });
     }
 };
 
 exports.logout = (req, res) => {
+    try {
     res.clearCookie("token");
     res.status(200).json({ message: "Logout successful. Please delete the token on the client side." });
+    } catch (error) {
+        console.error("Logout error:", error);
+        res.status(500).json({ message: error.message || "Server error during logout." });
+    }
 }
 
 exports.unregister = async (req, res) => {
@@ -159,7 +151,42 @@ exports.unregister = async (req, res) => {
         res.status(200).json({ message: "User account deleted successfully." });
     } catch (error) {
         console.error("Unregister error:", error);
-        res.status(500).json({ message: "Server error during account deletion." });
+        res.status(500).json({ message: error.message || "Server error during account deletion." });
     }
 };
 
+
+async function validateRegisterAdminData(name, email, password, workspace) {
+    if (!name || !email || !password) {
+        throw new Error("Name, email, and password are required.");
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+        throw new Error("Email already in use.");
+    }
+
+    //check if workspace have a admin user already
+    
+    if (!workspace) {
+        throw new Error("Valid workspace ID is required in cookies to register an admin user.");
+    }
+
+    const existingAdmin = await User.findOne({ workspaceId: workspace._id, systemRole: "admin" });
+   if (existingAdmin) {
+       throw new Error("An admin user already exists for this workspace.");
+   }
+}
+
+async function validateRegisterData(data) {
+    const { name, email, password } = data;
+
+    if (!name || !email || !password) {
+        throw new Error("Name, email, and password are required.");
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+        throw new Error("Email already in use.");
+    }
+}

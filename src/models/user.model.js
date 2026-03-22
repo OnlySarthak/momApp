@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
     },
     systemRole: {
       type: String,
-      enum: ["admin", "leader", "member"],
+      enum: ["admin", "leader", "member", "bench"],
       required: true,
     },
     workspaceId: {
@@ -39,7 +39,7 @@ userSchema.methods.generateAuthToken = function () {
   const user = this;
   const token = jwt.sign(
     {
-      _id: user._id,
+      id: user._id,
       email: user.email,
       systemRole: user.systemRole,
       workspaceId: user.workspaceId

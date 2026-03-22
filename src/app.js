@@ -8,8 +8,9 @@ const errorMiddleware = require("./middlewares/error.middleware");
 
 
 // route imports (adjust paths as per your folders)
+const {auth } = require("./middlewares/auth.middleware");
 const authRoutes = require("./routes/auth/auth.routes");
-// const teamRoutes = require("./routes/admin/team.routes");
+const teamRoutes = require("./routes/admin/team.routes");
 // const meetingRoutes = require("./routes/leader/meeting.routes");
 // const taskRoutes = require("./routes/leader/task.routes");
 // const suggestionRoutes = require("./routes/member/suggestion.routes");
@@ -19,6 +20,7 @@ app.use(cookieParser());
 
 app.use(parser.json());
 app.use(parser.urlencoded({ extended: true }));
+
 
 
 app.get("/health", (req, res) => {
@@ -33,7 +35,9 @@ app.get("/health", (req, res) => {
 ======================= */
 
 app.use("/auth", authRoutes);
-// app.use("/api/admin/teams", teamRoutes);
+
+// app.use(auth); // Apply auth middleware globally
+app.use("/team", teamRoutes);
 // app.use("/api/leader/meetings", meetingRoutes);
 // app.use("/api/leader/tasks", taskRoutes);
 // app.use("/api/member/suggestions", suggestionRoutes)

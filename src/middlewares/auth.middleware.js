@@ -4,12 +4,28 @@ const team = require("../models/team.model");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = process.env;
 
+exports.auth = (req, res, next) => {
+    try {
+        const token = req.cookies.token;
+
+        if (!token) {
+            return res.status(401).json({ message: "No token provided" });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // attach user info to request
+        req.user = decoded;
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
+};
+
 // Middleware to check if the user is an admin
 exports.isAdmin = async (req, res, next) => {
     try {
-        const token = req.cookies.token; // Assuming token is available in req.cookies
-        const decoded = jwt.verify(token, JWT_SECRET);
-        const userId = decoded._id;
+        const userId = req.user.id; // Assuming user ID is available in req.user from auth middleware
         const currentUser = await user.findById(userId);
 
         if (!currentUser) {
@@ -28,7 +44,8 @@ exports.isAdmin = async (req, res, next) => {
 // Middleware to check if the user is a team leader
 exports.isTeamLeader = async (req, res, next) => {
     try {
-        const {userId, teamId} = req.body; // Assuming user ID and team ID are available in req.body
+        const userId = req.user.id; // Assuming user ID is available in req.user from auth middleware
+        const { teamId} = req.body; // Assuming user ID and team ID are available in req.body
 
         //check if team exists
         const currentTeam = await team.findById(teamId);
@@ -55,7 +72,8 @@ exports.isTeamLeader = async (req, res, next) => {
 // Middleware to check if the user is a team member
 exports.isTeamMember = async (req, res, next) => {
     try {
-        const {userId, teamId} = req.body; // Assuming user ID and team ID are available in req.body
+        const userId = req.user.id; // Assuming user ID is available in req.user from auth middleware
+        const { teamId } = req.body; // Assuming team ID is available in req.body
 
         //check if team exists
         const currentTeam = await team.findById(teamId);

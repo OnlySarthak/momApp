@@ -9,6 +9,12 @@ exports.createWorkspace = async (req, res) => {
             return res.status(400).json({ message: "Workspace name is required." });
         }
 
+        //check if workspace with the same name already exists
+        const existingWorkspace = await workspaceModel.findOne({ name });
+        if (existingWorkspace) {
+            return res.status(400).json({ message: "Workspace with this name already exists." });
+        }
+
         const newWorkspace = new workspaceModel({
             name
         });
@@ -27,13 +33,13 @@ exports.createWorkspace = async (req, res) => {
         });
     } catch (error) {
         console.error("Error creating workspace:", error);
-        res.status(500).json({ message: "Server error while creating workspace." });
+        res.status(500).json({ message: error.message || "Server error while creating workspace." });
     }
 };
 
 exports.deleteWorkspace = async (req, res) => {
     try {
-        const workspaceId = req.cookies.workspaceId;
+        const workspaceId = req.user.workspaceId;
         if (!workspaceId) {
             return res.status(400).json({ message: "Workspace ID is required in cookies." });
         }
@@ -46,14 +52,14 @@ exports.deleteWorkspace = async (req, res) => {
         res.status(200).json({ message: "Workspace deleted successfully." });
     } catch (error) {
         console.error("Error deleting workspace:", error);
-        res.status(500).json({ message: "Server error while deleting workspace." });
+        res.status(500).json({ message: error.message || "Server error while deleting workspace." });
     }
 };
 
 //for all users, need workspace id from cookies
 exports.getWorkspaceName = async (req, res) => {
     try {
-        const workspaceId = req.cookies.workspaceId;
+        const workspaceId = req.user.workspaceId;
         if (!workspaceId) {
             return res.status(400).json({ message: "Workspace ID is required in cookies." });
         }
@@ -66,8 +72,9 @@ exports.getWorkspaceName = async (req, res) => {
         res.status(200).json({ name: workspace.name });
     } catch (error) {
         console.error("Error fetching workspace name:", error);
-        res.status(500).json({ message: "Server error while fetching workspace name." });
+        res.status(500).json({ message: error.message || "Server error while fetching workspace name." });
     }
 };
+
 
 
