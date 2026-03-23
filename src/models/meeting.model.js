@@ -52,7 +52,7 @@ const meetingSchema = new mongoose.Schema(
         "summarized",
         "failed"
       ],
-      default: "uploaded"
+      default: "initialized"
     },
     participants: {
       type: [participantSchema],
