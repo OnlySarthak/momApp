@@ -116,7 +116,12 @@ exports.createTeam = async (req, res) => {
 
         await newTeamMember.save();
 
-        res.status(201).json(savedTeam);
+        res.status(201).json({
+            id: savedTeam._id,
+            teamName: savedTeam.teamName,
+            leaderId: savedTeam.leaderId,
+            createdBy: savedTeam.createdBy
+        });
     } catch (error) {
         console.error("Error creating team:", error);
         res.status(500).json({ message: error.message || "Server error" });
@@ -166,6 +171,7 @@ exports.removeUserFromTeam = async (req, res) => {
         await checkRemoveUserFromTeamData(teamId, userId);
 
         await teamMember.deleteOne({ teamId, userId });
+        await user.findOneAndUpdate({ _id: userId }, { systemRole: "bench" });
 
         //check if user is removed from team successfully
         const removedTeamMember = await teamMember.findOne({ teamId, userId });
@@ -188,8 +194,13 @@ exports.deleteTeam = async (req, res) => {
         //check if team exist
         await checkDeleteTeamData(teamId, req.user.id);
 
-        //delete all team members first and then delete the team
-        await teamMember.deleteMany({ teamId: teamId });
+        //delete all team members first, update users and then delete the team
+        const teamMembers = await teamMember.find({ teamId });
+        for (const member of teamMembers) {
+            await user.findOneAndUpdate({ _id: member.userId }, { systemRole: "bench" });
+        }
+        await teamMember.deleteMany({ teamId });
+
         await team.deleteOne({ _id: teamId });
 
         //check if team is deleted successfully

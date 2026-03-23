@@ -3,42 +3,30 @@ const mongoose = require("mongoose");
 
 const taskSchema = new mongoose.Schema(
   {
-    meetingId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Meeting",
-      index: true,
+    title: {
+      type: String,
+      required: true
     },
-
-    momId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Mom",
-    },
-
-    teamId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Team",
-      required: true,
-      index: true,
-    },
-
-    assignedTo: {
+    responsible: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
-
-    title: { type: String, required: true },
-    description: String,
-
-    status: {
+    state: {//should we need assign in enum or not ?
       type: String,
-      enum: ["pending", "in-progress", "completed"],
+      enum: ["pending", "in_progress", "completed"],
       default: "pending",
+    },
+    momId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Mom",
+      required: true,
       index: true,
     },
-
-    dueDate: Date,
+    lastUpdated: {
+      type: Date,
+      default: Date.now
+    },
   },
   { timestamps: true }
 );

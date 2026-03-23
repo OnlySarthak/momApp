@@ -8,20 +8,15 @@ const momSchema = new mongoose.Schema(
       ref: "Meeting",
       required: true,
       index: true,
+      unique: true
     },
-    summary: String,
-    decisions: [String],
-    generatedFromTranscriptId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Transcript",
+    summary: {
+      type: String,
+      required: true
     },
-    version: {
-      type: Number,
-      default: 1,
-    },
-    updatedByLeader: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+    decisions: {
+      type: [String],
+      default: []
     },
   },
   { timestamps: true }
