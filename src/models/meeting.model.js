@@ -35,9 +35,12 @@ const meetingSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    leaderName: {
+      type: String,
+      required: true
+    },
     audioFileUrl:{
-        type: String,
-        required: true
+        type: String
     } ,
     meetingDate: {
       type: Date,

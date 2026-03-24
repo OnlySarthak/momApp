@@ -42,7 +42,8 @@ userSchema.methods.generateAuthToken = function () {
       id: user._id,
       email: user.email,
       systemRole: user.systemRole,
-      workspaceId: user.workspaceId
+      workspaceId: user.workspaceId,
+      name: user.name
     },
     JWT_SECRET,
     { expiresIn: "7d" }

@@ -7,12 +7,20 @@ const taskSchema = new mongoose.Schema(
       type: String,
       required: true
     },
-    responsible: {
+    responsibleId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    state: {//should we need assign in enum or not ?
+    resposibleName:{
+      type: String,
+      required: true
+    },
+    responsibleFunctionalRole:{
+      type: String,
+      required: true
+    },
+    state: {
       type: String,
       enum: ["pending", "in_progress", "completed"],
       default: "pending",

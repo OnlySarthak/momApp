@@ -18,10 +18,6 @@ const momSchema = new mongoose.Schema(
       type: [String],
       default: []
     },
-    activeMemberIds: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "TeamMember"
-    }]
   },
   { timestamps: true }
 );

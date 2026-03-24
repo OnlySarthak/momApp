@@ -1,19 +1,22 @@
-const const express = require("express");
+const express = require("express");
 const router = express.Router();
 
 // Import controller functions
 const {
   createMeeting,
-    getMeetings,
-    getMeetingById,
-    updateMeeting,
-    deleteMeeting
+  startMeetingProcessing
 } = require("../../controllers/leader/meeting.controller");
+
+const { auth, isTeamLeader } = require("../../middlewares/auth.middleware");
+
+// Apply authentication middleware to all routes in this router
+router.use(auth);
+// Apply team leader authorization middleware to all routes in this router
+router.use(isTeamLeader);
 
 // Routes for meetings
 router.post("/", createMeeting);
-router.get("/", getMeetings);
-router.get("/:id", getMeetingById);
-router.put("/:id", updateMeeting);
-router.delete("/:id", deleteMeeting);
+router.post("/:id/processing", startMeetingProcessing);
+
+
 module.exports = router;

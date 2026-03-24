@@ -11,6 +11,7 @@ const errorMiddleware = require("./middlewares/error.middleware");
 const {auth } = require("./middlewares/auth.middleware");
 const authRoutes = require("./routes/auth/auth.routes");
 const teamRoutes = require("./routes/admin/team.routes");
+const meetingRoutes = require("./routes/leader/meeting.routes");
 // const meetingRoutes = require("./routes/leader/meeting.routes");
 // const taskRoutes = require("./routes/leader/task.routes");
 // const suggestionRoutes = require("./routes/member/suggestion.routes");
@@ -38,7 +39,7 @@ app.use("/auth", authRoutes);
 
 // app.use(auth); // Apply auth middleware globally
 app.use("/team", teamRoutes);
-// app.use("/api/leader/meetings", meetingRoutes);
+app.use("/leader/meeting", meetingRoutes);
 // app.use("/api/leader/tasks", taskRoutes);
 // app.use("/api/member/suggestions", suggestionRoutes)
 

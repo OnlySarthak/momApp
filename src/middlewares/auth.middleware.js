@@ -54,7 +54,7 @@ exports.isTeamLeader = async (req, res, next) => {
         }
 
         //check if user is a leader - member of the team
-        const currentUser = await teamMember.findOne({ userId, teamId });
+        const currentUser = await teamMember.findOne({ userId , teamId });
         if (!currentUser) {
             return res.status(404).json({ message: "User is not a member of the team" });
         }

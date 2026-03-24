@@ -14,20 +14,20 @@ const startMeetingProcessingInBackground = async (meetingId, audioFileUrl) => {
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
             contents: [
-            {
-                role: "user",
-                parts: [
-                    {
-                        text: prompt,
-                    },
-                    {
-                        fileData: {
-                            mimeType: "audio/mpeg", // ⚠️ change based on file type
-                            fileUri: audioFileUrl,  // S3 URL
+                {
+                    role: "user",
+                    parts: [
+                        {
+                            text: prompt,
                         },
-                    },
-                ],
-            },
+                        {
+                            fileData: {
+                                mimeType: "audio/mpeg", // ⚠️ change based on file type
+                                fileUri: audioFileUrl,  // S3 URL
+                            },
+                        },
+                    ],
+                },
             ],
         });
 
@@ -39,61 +39,82 @@ const startMeetingProcessingInBackground = async (meetingId, audioFileUrl) => {
         //update meeting processing stage to "failed"
         await meeting.findByIdAndUpdate(
             meetingId,
-            { processingStage: "failed" },  
+            { processingStage: "failed" },
             { new: true }
         );
-    }   
+    }
 };
 
 const postProccessMeetingOperations = async (meetingId, aiResponse) => {
     try {
+
         //parse aiResponse
-            const { summary, key_decisions, tasks, team_stats, active_member_ids } = JSON.parse(aiResponse.contents[0].parts[0].text);
+        const { summary,
+            decisions,
+            tasks,
+            team_stats,
+            activeMemberIds } = JSON.parse(aiResponse.contents[0].parts[0].text);
 
-            //save MoM
-            await mom.create({
-                meetingId,
-                summary,
-                decisions: key_decisions,
-                activeMemberIds: active_member_ids
-            });
+        //save MoM
+        await mom.create({
+            meetingId,
+            summary,
+            decisions,
+            activeMemberIds
+        });
 
-            //save tasks
-            for (const taskGroup of tasks) {
-                const { user_id, pending, in_progress, completed } = taskGroup;
+        //save tasks
+        for (const taskGroup of tasks) {
+            const { user_id, pending, in_progress, completed } = taskGroup;
 
-                // Create tasks for each category
-                for (const description of pending) {
-                    await task.create({
-                        meetingId,
-                        userId: user_id,
-                        description,
-                        status: "pending"
-                    });
-                }
-                for (const description of in_progress) {
-                    await task.create({
-                        meetingId,
-                        userId: user_id,
-                        description,
-                        status: "in_progress"
-                    });
-                }
-                for (const description of completed) {
-                    await task.create({
-                        meetingId,
-                        userId: user_id,
-                        description,
-                        status: "completed"
-                    });
-                }
+            const responsibleName = await user.findById(user_id).select("name");
+            const responsibleFunctionalRole = await teamMember.findOne
+                ({ userId: user_id }).select("functionalRole");
+
+            if (!responsibleName || !responsibleFunctionalRole) {
+                console.warn(`Skipping task assignment for user_id ${user_id} due to missing user or team member data.`);
+                continue; // skip this task group if user data is incomplete
             }
 
-            //save team stats
-            await teamstats.create({
-                meetingId,
-                ...team_stats
-            });
+            for (const t of pending) {
+                await task.create({
+                    title: t,
+                    responsibleId: user_id,
+                    state: "pending",
+                    momId: mom._id,
+                    resposibleName: teamMember.name,
+                    responsibleFunctionalRole: teamMember.functionalRole
+                });
+            }
+
+            for (const t of in_progress) {
+                await task.create({
+                    title: t,
+                    responsibleId: user_id,
+                    state: "in_progress",
+                    momId: mom._id,
+                    resposibleName: teamMember.name,
+                    responsibleFunctionalRole: teamMember.functionalRole
+                });
+            }
+
+            for (const t of completed) {
+                await task.create({
+                    title: t,
+                    responsibleId: user_id,
+                    state: "completed",
+                    momId: mom._id,
+                    resposibleName: teamMember.name,
+                    responsibleFunctionalRole: teamMember.functionalRole
+                });
+            }
+
+        }
+
+        //save team stats
+        await teamstats.findByIdAndUpdate(meetingId, {
+            ...team_stats
+        }, { new: true });
 
         // Further operations like saving MoM, tasks, decisions to DB
     } catch (error) {
@@ -101,14 +122,14 @@ const postProccessMeetingOperations = async (meetingId, aiResponse) => {
     }
 };
 
-const generatePrompt = async (meetingId) => {   
+const generatePrompt = async (meetingId) => {
     try {
         const meetingData = await meeting.findById(meetingId).populate("participants.id", "name");
 
         meetingData.participants = await Promise.all(meetingData.participants.map(async (p) => ({
             id: p.id._id.toString(),
             name: p.id.name,
-            role: await teamMember.findOne({ userId : p.id._id}).select("functionalRole")
+            role: await teamMember.findOne({ userId: p.id._id }).select("functionalRole")
         })));
 
         if (!meetingData) {
@@ -129,7 +150,7 @@ const generatePrompt = async (meetingId) => {
             Participants:
             ${meetingData.participants.map(p =>
             `- Name: ${p.name}, ID: ${p.id}, Role: ${p.role || "member"}`
-            ).join("\n")}
+        ).join("\n")}
             ----------------------------
 
             YOUR TASK:
@@ -156,7 +177,7 @@ const generatePrompt = async (meetingId) => {
 
             {
             "summary": "string",
-            "key_decisions": ["string"],
+            "decisions": ["string"],
             "tasks": [
                 {
                 "user_id": "string",
@@ -171,7 +192,6 @@ const generatePrompt = async (meetingId) => {
                 "pendingTasks": number,
                 "inProgressTasks": number
             },
-            "active_member_ids": ["string"]
             }
 
             ----------------------------

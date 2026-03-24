@@ -1,21 +1,21 @@
-const meeting = require("../../models/Meeting");
-const meetingQueue = require("../queues/meeting.queue");
+const meeting = require("../../models/meeting.model");
+const teamMember = require("../../models/teamMember.model");
 
 //create meeting with empty things - before file get uploaded to aws s3
 exports.createMeeting = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
-        const leaderId = req.user._id;
+        const leaderId = req.user.id;
+        const leaderName = req.user.name;
 
         const {
             title,
             teamId,
             meetingDate,
-            participants
         } = req.body;
 
         //validation
-        await validateCreateMeetingData(req.body, workspaceId, leaderId);
+        await validateCreateMeetingData(req.body, workspaceId, leaderId, participants);
 
         //create meeting
         const newMeeting = new meeting({
@@ -23,8 +23,8 @@ exports.createMeeting = async (req, res) => {
             workspaceId,
             teamId,
             leaderId,
-            meetingDate,
-            participants: participants.map(participantId => ({ id: participantId }))
+            leaderName,
+            meetingDate
         });
 
         await newMeeting.save();
@@ -70,8 +70,26 @@ exports.startMeetingProcessing = async (req, res) => {
     }
 };
 
-async function validateCreateMeetingData(data, workspaceId, leaderId) {
-    const { title, teamId, meetingDate, participants } = data;
+exports.getMeetings = async (req, res) => {
+    // Implementation for fetching meetings
+    try {
+        //take userId from req.user and we assume user is leader
+        const userId = req.user._id;
+
+
+
+        const meetings = await meeting.find({ workspaceId });
+        res.status(200).json(meetings);
+    } catch (error) {
+        console.error("Error fetching meetings:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+//background processing function
+
+async function validateCreateMeetingData(data, workspaceId, leaderId, participants) {
+    const { title, teamId, meetingDate } = data;
 
     //title validation
     if (!title || typeof title !== "string") {
@@ -95,7 +113,7 @@ async function validateCreateMeetingData(data, workspaceId, leaderId) {
 
     //check if participants are memeber of team
     const result = await participants.every(async participantId => {
-        const isMember = await checkUserMembership(participantId, teamId, workspaceId);
+        const isMember = await teamMember.findOne({ userId: participantId, teamId });
         if (!isMember) {
             throw new Error(`User with ID ${participantId} is not a member of the team`);
         }
