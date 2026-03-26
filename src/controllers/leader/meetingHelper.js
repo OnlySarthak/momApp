@@ -1,15 +1,21 @@
 const meeting = require("../../models/meeting.model");
 const teamMember = require("../../models/teamMember.model");
-const ai = require("../../utils/aiClient"); // hypothetical AI client wrapper
-const task = require("../../models/task.model");
 const mom = require("../../models/mom.model");
 const task = require("../../models/task.model");
-const teamstats = require("../../models/teamStats.model");
+const teamstats = require("../../models/teams.stats.model");
+const user = require("../../models/user.model");
+const { GoogleGenAI } = require("@google/genai");
 
-const startMeetingProcessingInBackground = async (meetingId, audioFileUrl) => {
+exports.startMeetingProcessingInBackground = async (meetingId, audioFileUrl) => {
     try {
         //prepare prompt
-        const prompt = generatePrompt(meetingId);
+        const prompt = await generatePrompt(meetingId);
+        // console.log(prompt);
+
+
+        const ai = new GoogleGenAI({
+            apiKey: process.env.GEMINI_API_KEY,
+        });
 
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
@@ -31,8 +37,14 @@ const startMeetingProcessingInBackground = async (meetingId, audioFileUrl) => {
             ],
         });
 
+
+
+        const aiText = response.candidates[0].content.parts[0].text;
+
+        console.log("AI RAW TEXT:", aiText);
+
         //further operations like saving MoM, tasks, decisions to DB based on response
-        postProccessMeetingOperations(meetingId, response);
+        postProccessMeetingOperations(meetingId, aiText);
     }
     catch (error) {
         console.error("Error processing meeting:", error);
@@ -40,50 +52,47 @@ const startMeetingProcessingInBackground = async (meetingId, audioFileUrl) => {
         await meeting.findByIdAndUpdate(
             meetingId,
             { processingStage: "failed" },
-            { new: true }
+            { returnDocument: "after" }
         );
     }
 };
 
 const postProccessMeetingOperations = async (meetingId, aiResponse) => {
     try {
-
-        //parse aiResponse
         const { summary,
             decisions,
             tasks,
             team_stats,
-            activeMemberIds } = JSON.parse(aiResponse.contents[0].parts[0].text);
+        } = JSON.parse(aiResponse);
+
+        //check if mom having meetingId already exists, if yes then update else create new
+        const existingMoM = await mom.findOne({ meetingId });
+        if (existingMoM) {
+            throw new Error("MoM for this meeting already exists");
+        }
 
         //save MoM
-        await mom.create({
+        const momSaved = await mom.create({
             meetingId,
             summary,
             decisions,
-            activeMemberIds
         });
 
         //save tasks
         for (const taskGroup of tasks) {
-            const { user_id, pending, in_progress, completed } = taskGroup;
-
-            const responsibleName = await user.findById(user_id).select("name");
-            const responsibleFunctionalRole = await teamMember.findOne
-                ({ userId: user_id }).select("functionalRole");
-
-            if (!responsibleName || !responsibleFunctionalRole) {
-                console.warn(`Skipping task assignment for user_id ${user_id} due to missing user or team member data.`);
-                continue; // skip this task group if user data is incomplete
-            }
+            const { user_id,
+                responsibleName,
+                responsibleFunctionalRole,
+                pending, in_progress, completed } = taskGroup;
 
             for (const t of pending) {
                 await task.create({
                     title: t,
                     responsibleId: user_id,
                     state: "pending",
-                    momId: mom._id,
-                    resposibleName: teamMember.name,
-                    responsibleFunctionalRole: teamMember.functionalRole
+                    momId: momSaved._id,
+                    resposibleName: responsibleName,
+                    // responsibleFunctionalRole: (responsibleFunctionalRole == "null") ? "other" : responsibleFunctionalRole
                 });
             }
 
@@ -92,9 +101,9 @@ const postProccessMeetingOperations = async (meetingId, aiResponse) => {
                     title: t,
                     responsibleId: user_id,
                     state: "in_progress",
-                    momId: mom._id,
-                    resposibleName: teamMember.name,
-                    responsibleFunctionalRole: teamMember.functionalRole
+                    momId: momSaved._id,
+                    resposibleName: responsibleName,
+                    // responsibleFunctionalRole: (responsibleFunctionalRole == "null") ? "other" : responsibleFunctionalRole
                 });
             }
 
@@ -103,9 +112,9 @@ const postProccessMeetingOperations = async (meetingId, aiResponse) => {
                     title: t,
                     responsibleId: user_id,
                     state: "completed",
-                    momId: mom._id,
-                    resposibleName: teamMember.name,
-                    responsibleFunctionalRole: teamMember.functionalRole
+                    momId: momSaved._id,
+                    resposibleName: responsibleName,
+                    
                 });
             }
 
@@ -113,8 +122,14 @@ const postProccessMeetingOperations = async (meetingId, aiResponse) => {
 
         //save team stats
         await teamstats.findByIdAndUpdate(meetingId, {
-            ...team_stats
-        }, { new: true });
+            totalTasks: team_stats.totalTasks,
+            completedTasks: team_stats.completedTasks,
+            pendingTasks: team_stats.pendingTasks,
+            inProgressTasks: team_stats.inProgressTasks,
+        },
+        { returnDocument: "after", upsert: true });
+
+        console.log("Meeting post-processing completed successfully for meetingId:", meetingId);
 
         // Further operations like saving MoM, tasks, decisions to DB
     } catch (error) {
@@ -124,43 +139,44 @@ const postProccessMeetingOperations = async (meetingId, aiResponse) => {
 
 const generatePrompt = async (meetingId) => {
     try {
-        const meetingData = await meeting.findById(meetingId).populate("participants.id", "name");
+        const meetingData = await meeting
+            .findById(meetingId)
+            .populate("participants.id", "name");
 
-        meetingData.participants = await Promise.all(meetingData.participants.map(async (p) => ({
-            id: p.id._id.toString(),
-            name: p.id.name,
-            role: await teamMember.findOne({ userId: p.id._id }).select("functionalRole")
-        })));
 
-        if (!meetingData) {
+
+        // console.log("Fetched meeting data for prompt generation:", meetingData.participants);
+
+        const participatantsWithRoles = await teamMember.find({ teamId: meetingData.teamId, userId: { $in: meetingData.participants.map(p => p.id._id) } }).select("userId functionalRole").populate("userId", "name");
+
+        // console.log("Fetched participants with roles for prompt generation:", participatantsWithRoles);
+        if (!meetingData || !participatantsWithRoles) {
             throw new Error("Meeting not found for prompt generation");
         }
-
         const buildPrompt = `
-            You are an AI meeting assistant.
+        You are an AI meeting assistant.
+        
+        You will receive:
+        1. An audio file of a meeting
+        2. Meeting details and participants
+        
+        ----------------------------
+        MEETING DETAILS:
+        Title: ${meetingData.title}
 
-            You will receive:
-            1. An audio file of a meeting
-            2. Meeting details and participants
+        Participants:
+        ${participatantsWithRoles.map(p => `${p.userId._id} - ${p.userId.name} (${p.functionalRole})`).join("\n")}
 
-            ----------------------------
-            MEETING DETAILS:
-            Title: ${meetingData.title}
-
-            Participants:
-            ${meetingData.participants.map(p =>
-            `- Name: ${p.name}, ID: ${p.id}, Role: ${p.role || "member"}`
-        ).join("\n")}
-            ----------------------------
-
-            YOUR TASK:
-            1. Transcribe and understand the meeting
-            2. Generate a concise summary
-            3. Extract key decisions
-            4. Identify tasks and assign them to participants
-
-            ----------------------------
-            IMPORTANT RULES:
+        ----------------------------
+        
+        YOUR TASK:
+        1. Transcribe and understand the meeting
+        2. Generate a concise summary
+        3. Extract key decisions
+        4. Identify tasks and assign them to participants
+        
+        ----------------------------
+        IMPORTANT RULES:
             - Use ONLY the provided participant IDs
             - DO NOT invent users
             - If unsure about assignment, skip that task
@@ -171,21 +187,25 @@ const generatePrompt = async (meetingId) => {
             - completed
             - Count total tasks for team_stats
             - Identify active participants (who spoke or were assigned tasks)
-
+            - responsibleFunctionalRole should be same as in the provided participant list,
+            - dont invent functional roles, if not sure about functional role, keep it null
+            
             ----------------------------
             RETURN STRICT JSON ONLY (NO TEXT, NO EXPLANATION):
-
+            
             {
-            "summary": "string",
-            "decisions": ["string"],
-            "tasks": [
-                {
+                "summary": "string",
+                "decisions": ["string"],
+                "tasks": [
+                    {
                 "user_id": "string",
+                "responsibleName": "string",
+                "responsibleFunctionalRole": "string",
                 "pending": ["string"],
                 "in_progress": ["string"],
                 "completed": ["string"]
                 }
-            ],
+                ],
             "team_stats": {
                 "totalTasks": number,
                 "completedTasks": number,
@@ -193,7 +213,7 @@ const generatePrompt = async (meetingId) => {
                 "inProgressTasks": number
             },
             }
-
+            
             ----------------------------
             STRICT OUTPUT RULES:
             - Always return valid JSON
@@ -202,7 +222,7 @@ const generatePrompt = async (meetingId) => {
             - All IDs must match given participants
             `;
 
-        return buildPrompt(meetingData);
+        return buildPrompt;
     }
     catch (error) {
         console.error("Error generating prompt:", error);

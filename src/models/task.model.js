@@ -18,7 +18,6 @@ const taskSchema = new mongoose.Schema(
     },
     responsibleFunctionalRole:{
       type: String,
-      required: true
     },
     state: {
       type: String,

@@ -16,7 +16,7 @@ router.use(isTeamLeader);
 
 // Routes for meetings
 router.post("/", createMeeting);
-router.post("/:id/processing", startMeetingProcessing);
+router.post("/:meetingId/processing", startMeetingProcessing);
 
 
 module.exports = router;

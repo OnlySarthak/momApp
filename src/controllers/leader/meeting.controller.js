@@ -1,5 +1,6 @@
 const meeting = require("../../models/meeting.model");
 const teamMember = require("../../models/teamMember.model");
+const { startMeetingProcessingInBackground } = require("./meetingHelper");
 
 //create meeting with empty things - before file get uploaded to aws s3
 exports.createMeeting = async (req, res) => {
@@ -14,8 +15,13 @@ exports.createMeeting = async (req, res) => {
             meetingDate,
         } = req.body;
 
+        const teamMembersData = await teamMember.find({ teamId}).select("userId");
+        participants = teamMembersData.map(tm => tm.userId);
+        
         //validation
         await validateCreateMeetingData(req.body, workspaceId, leaderId, participants);
+
+        //fetch all teamMembers data for participants
 
         //create meeting
         const newMeeting = new meeting({
@@ -24,7 +30,8 @@ exports.createMeeting = async (req, res) => {
             teamId,
             leaderId,
             leaderName,
-            meetingDate
+            meetingDate,
+            participants: participants.map(userId => ({ id: userId }))
         });
 
         await newMeeting.save();
@@ -43,25 +50,27 @@ exports.startMeetingProcessing = async (req, res) => {
         const { meetingId } = req.params;
         const { audioFileUrl } = req.body;
 
-        //validate data 
-        await validateStartMeetingProcessingData(meetingId, audioFileUrl);
+        // //validate data 
+        // await validateStartMeetingProcessingData(meetingId, audioFileUrl);
 
-        //update meeting with audio file url and change processing stage to "uploaded"
-        const updatedMeeting = await meeting.findByIdAndUpdate(
-            meetingId,
-            { audioFileUrl, processingStage: "uploaded" },
-            { new: true }
-        );
-        if (!updatedMeeting) {
-            return res.status(404).json({ message: "Meeting not found" });
-        }
+        // //update meeting with audio file url and change processing stage to "uploaded"
+        // const updatedMeeting = await meeting.findByIdAndUpdate(
+        //     meetingId,
+        //     { audioFileUrl, processingStage: "uploaded" },
+        //     { new: true }
+        // );
+        // if (!updatedMeeting) {
+        //     return res.status(404).json({ message: "Meeting not found" });
+        // }
 
         //start meeting processing in background
-        startMeetingProcessingInBackground(meetingId, audioFileUrl);
+        await startMeetingProcessingInBackground(meetingId, audioFileUrl).catch(error => {
+            console.error("Error in background meeting processing:", error);
+        });
 
         res.status(200).json({
             message: "Meeting processing started successfully",
-            meeting: updatedMeeting
+            // meeting: updatedMeeting
         });
 
     } catch (error) {
@@ -104,23 +113,6 @@ async function validateCreateMeetingData(data, workspaceId, leaderId, participan
     //meetingDate validation
     if (!meetingDate || isNaN(Date.parse(meetingDate))) {
         throw new Error("Valid meeting date is required");
-    }
-
-    //participants validation
-    if (!Array.isArray(participants) || participants.some(p => typeof p !== "string")) {
-        throw new Error("Participants must be an array of user IDs (strings)");
-    }
-
-    //check if participants are memeber of team
-    const result = await participants.every(async participantId => {
-        const isMember = await teamMember.findOne({ userId: participantId, teamId });
-        if (!isMember) {
-            throw new Error(`User with ID ${participantId} is not a member of the team`);
-        }
-        return true;
-    });
-    if (!result) {
-        throw new Error("One or more participants are not valid team members");
     }
 }
 

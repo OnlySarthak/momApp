@@ -45,20 +45,9 @@ exports.isAdmin = async (req, res, next) => {
 exports.isTeamLeader = async (req, res, next) => {
     try {
         const userId = req.user.id; // Assuming user ID is available in req.user from auth middleware
-        const { teamId} = req.body; // Assuming user ID and team ID are available in req.body
+        const isLeader = req.user.systemRole === "leader"; // Assuming functional role is available in req.user from auth middleware
 
-        //check if team exists
-        const currentTeam = await team.findById(teamId);
-        if (!currentTeam) {
-            return res.status(404).json({ message: "Team not found" });
-        }
-
-        //check if user is a leader - member of the team
-        const currentUser = await teamMember.findOne({ userId , teamId });
-        if (!currentUser) {
-            return res.status(404).json({ message: "User is not a member of the team" });
-        }
-        else if (currentUser.functionalRole !== "leader") {
+        if (!isLeader) {
             return res.status(403).json({ message: "Access denied. Team leaders only." });
         }
 
