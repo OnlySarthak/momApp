@@ -3,7 +3,6 @@ const teamMember = require("../../models/teamMember.model");
 const mom = require("../../models/mom.model");
 const task = require("../../models/task.model");
 const teamstats = require("../../models/teams.stats.model");
-const user = require("../../models/user.model");
 const { GoogleGenAI } = require("@google/genai");
 
 exports.startMeetingProcessingInBackground = async (meetingId, audioFileUrl) => {

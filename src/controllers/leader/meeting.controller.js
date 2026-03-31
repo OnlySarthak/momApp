@@ -84,9 +84,7 @@ exports.getMeetings = async (req, res) => {
     try {
         //take userId from req.user and we assume user is leader
         const userId = req.user._id;
-
-
-
+        
         const meetings = await meeting.find({ workspaceId });
         res.status(200).json(meetings);
     } catch (error) {

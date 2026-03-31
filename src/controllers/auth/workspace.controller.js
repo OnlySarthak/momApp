@@ -37,6 +37,7 @@ exports.createWorkspace = async (req, res) => {
     }
 };
 
+//for admin only, need workspace id from cookies
 exports.deleteWorkspace = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
@@ -75,6 +76,4 @@ exports.getWorkspaceName = async (req, res) => {
         res.status(500).json({ message: error.message || "Server error while fetching workspace name." });
     }
 };
-
-
-
+ 
