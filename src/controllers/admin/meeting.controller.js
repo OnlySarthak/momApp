@@ -13,7 +13,7 @@ exports.getMeetingList = async (req, res) => {
             .sort({ meetingDate: -1 }); // Sort by meeting date in descending order
 
         const meetingDataWithAttendees = await Promise.all(recentMeetings.map(async (meeting) => {
-            const attendees = await Mom.find({ meetingId: meeting._id }).select("presentAttendees").select("presentAttendees.name");S
+            const attendees = await Mom.find({ meetingId: meeting._id }).select("presentAttendees.name");
             return {
                 ...meeting.toObject(),
                 attendees: attendees.flatMap(mom => mom.presentAttendees.map(attendee => attendee.name)) // Extract attendee names
@@ -31,22 +31,21 @@ exports.getMeetingDetails = async (req, res) => {
     try {
         const meetingId = req.params.id; // Get the meeting ID from request parameters
         
-        const meetings = await meeting.findById(meetingId);
+        const meetingDetails = await meeting.findById(meetingId);
         if (!meetingDetails) {
             return res.status(404).json({ success: false, message: "Meeting not found" });
         }
 
-        const meetingDetails = await Promise.all([meetings.map(async (meeting) => {
-            const momDetails = await Mom.findOne({ meetingId: meeting._id });
-            const transcripts = await Transcript.find({ meetingId: meeting._id });
-            return {
-                ...meeting.toObject(),
-                mom: momDetails,
-                transcripts: transcripts
-            };
-        })]);
+        const momDetails = await Mom.findOne({ meetingId });
+        const transcripts = await Transcript.find({ meetingId });
+        
+        const combinedData = {
+            ...meetingDetails.toObject(),
+            mom: momDetails,
+            transcripts: transcripts
+        };
 
-        res.status(200).json({ success: true, data: meetingDetails });
+        res.status(200).json({ success: true, data: combinedData });
     }
     catch (error) {
         console.error("Error fetching meeting details:", error);

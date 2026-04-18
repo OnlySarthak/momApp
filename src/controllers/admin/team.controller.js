@@ -1,21 +1,22 @@
-const team = require("../../models/team.model");
-//get all team list of a workspace
-const teamMember = require("../../models/teamMember.model");
-const teamStats = require("../../models/teamStats.model");
-const user = require("../../models/user.model");
+const Team = require("../../models/team.model");
+const TeamMember = require("../../models/teamMember.model");
+const TeamStats = require("../../models/teams.stats.model");
+const User = require("../../models/user.model");
+const Task = require("../../models/task.model");
+const Meeting = require("../../models/meeting.model");
 
 exports.getTeamsList = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
 
         if (!workspaceId) {
-            return res.status(400).json({ message: "Workspace ID is required in cookies." });
+            return res.status(400).json({ message: "Workspace ID is required." });
         }
 
-        const teams = await team.find({ workspaceId });
+        const teams = await Team.find({ workspaceId });
         const teamDetails = await Promise.all(teams.map(async (team) => {
-            const MembersNames = await teamMember.find({ teamId: team._id }).populate("userId", "name");
-            const teamTaskData = await teamStats.findOne({ teamId: team._id }).select("TeamProductivityScore totalTasksCompleted");
+            const memberData = await TeamMember.find({ teamId: team._id }).populate("userId", "name");
+            const teamTaskData = await TeamStats.findOne({ teamId: team._id }).select("TeamProductivityScore completedTasks");
 
             return {
                 id: team._id,
@@ -23,8 +24,8 @@ exports.getTeamsList = async (req, res) => {
                 leaderId: team.leaderId,
                 createdBy: team.createdBy,
                 TeamProductivityScore: teamTaskData ? teamTaskData.TeamProductivityScore : 0,
-                totalTasksCompleted: teamTaskData ? teamTaskData.totalTasksCompleted : 0,
-                members: MembersNames.map(member => member.userId.name)
+                totalTasksCompleted: teamTaskData ? teamTaskData.completedTasks : 0,
+                members: memberData.map(member => member.userId ? member.userId.name : "Unknown")
             };
         }));
         
@@ -38,14 +39,14 @@ exports.getTeamsList = async (req, res) => {
 exports.addTeam = async (req, res) => {
     try {
         const { teamName, leaderId, project, teamDescription, teamFunctionalRole } = req.body;
-        const createdBy = req.user.id; // Assuming user ID is available in req.user
-        const workspaceId = req.user.workspaceId; // Assuming workspace ID is available in req.user
+        const createdBy = req.user.id;
+        const workspaceId = req.user.workspaceId;
 
         if (!teamName || !leaderId) {
             return res.status(400).json({ message: "Team name and leader ID are required." });
         }
 
-        const newTeam = new team({
+        const newTeam = new Team({
             workspaceId,
             teamName,
             leaderId,
@@ -56,16 +57,14 @@ exports.addTeam = async (req, res) => {
         });
         const savedTeam = await newTeam.save();
 
-        //add team leader as a member of the team
-        const newTeamMember = new teamMember({
+        const newTeamMember = new TeamMember({
             teamId: savedTeam._id,
             userId: leaderId,
-            functionalRole: "leader",
-            addedBy: createdBy
+            functionalRole: "Adviser", // Changed from "leader" to valid enum or null
         });
         await newTeamMember.save();
-        //update user system role to leader
-        await user.findOneAndUpdate({ _id: leaderId }, { systemRole: "leader" });
+        
+        await User.findOneAndUpdate({ _id: leaderId }, { systemRole: "leader" });
         res.status(201).json({
             id: savedTeam._id,
             teamName: savedTeam.teamName,
@@ -85,17 +84,17 @@ exports.getTeamDetails = async (req, res) => {
     try {
         const teamId = req.params.teamId;
         if (!teamId) {
-            return res.status(400).json({ message: "Team ID is required in params." });
+            return res.status(400).json({ message: "Team ID is required." });
         }
-        const teamData = await team.findById(teamId);
+        const teamData = await Team.findById(teamId);
         if (!teamData) {
             return res.status(404).json({ message: "Team not found." });
         }
 
-        const teamMembers = await teamMember.find({ teamId }).populate("userId", "name email systemRole");
-        const teamStatsData = await teamStats.find({teamId});
-        const teamTasksData = await task.find({ teamId }).limit(5).sort({ completedAt: -1 });
-        const recentMeetings = await meeting.find({ teamId }).sort({ meetingDate: -1 }).limit(5);
+        const teamMembers = await TeamMember.find({ teamId }).populate("userId", "name email systemRole");
+        const teamStatsData = await TeamStats.find({ teamId });
+        const teamTasksData = await Task.find({ teamId }).limit(5).sort({ updatedAt: -1 });
+        const recentMeetings = await Meeting.find({ teamId }).sort({ meetingDate: -1 }).limit(5);
 
 
         res.status(200).json({
@@ -107,10 +106,10 @@ exports.getTeamDetails = async (req, res) => {
             teamFunctionalRole: teamData.teamFunctionalRole,
             createdBy: teamData.createdBy,
             members: teamMembers.map(member => ({
-                id: member.userId._id,
-                name: member.userId.name,
-                email: member.userId.email,
-                systemRole: member.userId.systemRole,
+                id: member.userId ? member.userId._id : null,
+                name: member.userId ? member.userId.name : "Unknown",
+                email: member.userId ? member.userId.email : null,
+                systemRole: member.userId ? member.userId.systemRole : null,
                 functionalRole: member.functionalRole
             })),
             teamStats: teamStatsData,
@@ -127,33 +126,36 @@ exports.addTeamMember = async (req, res) => {
     try {
         const teamId = req.params.teamId;
         const { userEmail, systemRole } = req.body;
-        const addedBy = req.user.id; // Assuming user ID is available in req.user
+        const addedBy = req.user.id;
         if (!teamId) {
-            return res.status(400).json({ message: "Team ID is required in params." });
+            return res.status(400).json({ message: "Team ID is required." });
         }
         if (!userEmail) {
-            return res.status(400).json({ message: "User email is required in body." });
+            return res.status(400).json({ message: "User email is required." });
         }
 
-        if( (systemRole !== "member")){
-            return res.status(400).json({ message: "Invalid system role. Please specify either 'member' or 'leader'." });
+        if (systemRole !== "member") {
+            return res.status(400).json({ message: "Invalid system role." });
         }
 
-        // Check if the user is already a member of the team
-        const existingTeamMember = await teamMember.findOne({ teamId, userId });
-        if (existingTeamMember) {
-            return res.status(400).json({ message: "User is already a member of the team." });
-        }
-
-        //update user
-        const userData = await user.findOneAndUpdate({ email: userEmail, workspaceId: req.user.workspaceId }, { status: true });
+        // Check if user exists first to get the ID
+        const userData = await User.findOne({ email: userEmail, workspaceId: req.user.workspaceId });
         if (!userData) {
             return res.status(404).json({ message: "User not found in the workspace." });
         }
         const userId = userData._id;
 
+        // Check if the user is already a member of the team
+        const existingTeamMember = await TeamMember.findOne({ teamId, userId });
+        if (existingTeamMember) {
+            return res.status(400).json({ message: "User is already a member of the team." });
+        }
+
+        //update user status
+        await User.findByIdAndUpdate(userId, { status: true });
+
         //create team member entry
-        const newTeamMember = new teamMember({
+        const newTeamMember = new TeamMember({
             teamId,
             userId
         });
@@ -172,20 +174,17 @@ exports.removeTeamMember = async (req, res) => {
         const teamId = req.params.teamId;
         const userId = req.params.userId;
         if (!teamId || !userId) {
-            return res.status(400).json({ message: "Team ID and User ID are required in params." });
+            return res.status(400).json({ message: "Team ID and User ID are required." });
         }
 
         //remove team member entry
-        const removedMember = await teamMember.findOneAndDelete({ teamId, userId });
+        const removedMember = await TeamMember.findOneAndDelete({ teamId, userId });
         if (!removedMember) {
             return res.status(404).json({ message: "Team member not found." });
         }
 
         //update user  status to false
-        const updatedUser = await user.findOneAndUpdate({ _id: userId }, { status: false });
-        if (!updatedUser) {
-            return res.status(404).json({ message: "User not found." });
-        }
+        await User.findOneAndUpdate({ _id: userId }, { status: false });
 
         res.status(200).json({ message: "User removed from team successfully." });
     }

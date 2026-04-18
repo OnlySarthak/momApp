@@ -1,14 +1,17 @@
+const Task = require("../../models/task.model");
+const TeamMember = require("../../models/teamMember.model");
+
 exports.getTasksList = async (req, res) => {
     try {
         const userId = req.user._id;
         const teamId = req.user.teamId;
 
-        const totalTasks = await Task.countDocuments({ teamId, assignedTo: userId });
-        const completedTasks = await Task.countDocuments({ teamId, assignedTo: userId, status: "completed" });
-        const pendingTasks = await Task.countDocuments({ teamId, assignedTo: userId, status: "pending" });
-        const inProgressTasks = await Task.countDocuments({ teamId, assignedTo: userId, status: "in-progress" });
+        const totalTasks = await Task.countDocuments({ teamId, responsibleId: userId });
+        const completedTasks = await Task.countDocuments({ teamId, responsibleId: userId, state: "completed" });
+        const pendingTasks = await Task.countDocuments({ teamId, responsibleId: userId, state: "pending" });
+        const inProgressTasks = await Task.countDocuments({ teamId, responsibleId: userId, state: "in_progress" });
 
-        const tasks = await Task.find({ teamId, assignedTo: userId }).sort({ createdAt: -1 });
+        const tasks = await Task.find({ teamId, responsibleId: userId }).sort({ createdAt: -1 });
 
         res.json({
             totalTasks,
@@ -23,17 +26,17 @@ exports.getTasksList = async (req, res) => {
     }
 };
 
-getTasksbyFilter = async (req, res) => {
+exports.getTasksbyFilter = async (req, res) => {
     try {
         const userId = req.user._id;
         const teamId = req.user.teamId;
         const statusFilter = req.query.status;
 
-        if (!["pending", "in-progress", "completed"].includes(statusFilter)) {
+        if (!["pending", "in_progress", "completed"].includes(statusFilter)) {
             return res.status(400).json({ message: "Invalid status filter" });
         }
 
-        const tasks = await Task.find({ teamId, assignedTo: userId, status: statusFilter }).sort({ createdAt: -1 });
+        const tasks = await Task.find({ teamId, responsibleId: userId, state: statusFilter }).sort({ createdAt: -1 });
 
         res.json(tasks);
     } catch (error) {
@@ -44,9 +47,10 @@ getTasksbyFilter = async (req, res) => {
 
 exports.assignTask = async (req, res) => {
     try {
-        const { name, userId, } = req.user;
-        const { taskTitle} = req.body;
-        const assignedTo = await teamMemberModel.findOne({ userId: userId }).
+        const userId = req.user._id;
+        const { taskTitle } = req.body;
+        
+        const assignedTo = await TeamMember.findOne({ userId: userId }).
             populate('userId', 'name email');
 
         if (!assignedTo) {
@@ -55,7 +59,7 @@ exports.assignTask = async (req, res) => {
 
         const newTask = new Task({
             title: taskTitle,
-            responsibleName: assignedTo.userId.name,
+            resposibleName: assignedTo.userId.name,
             responsibleFunctionalRole: assignedTo.functionalRole,
             responsibleId: assignedTo.userId._id,
             state: "pending",

@@ -47,7 +47,16 @@ exports.startMeetingProcessingInBackground = async (meetingId, audioFileUrl) => 
 
 const postProcessMeetingOperations = async (meetingId, aiResponse) => {
     try {
-        const parsed = JSON.parse(aiResponse);
+        let parsed;
+        try {
+            // Remove potential markdown code blocks if AI returns them
+            const cleanResponse = aiResponse.replace(/```json|```/g, '').trim();
+            parsed = JSON.parse(cleanResponse);
+        } catch (parseError) {
+            console.error("AI JSON Parse Error:", parseError, "Raw Response:", aiResponse);
+            await meeting.findByIdAndUpdate(meetingId, { processingStage: "failed" });
+            return;
+        }
 
         const {
             summary,

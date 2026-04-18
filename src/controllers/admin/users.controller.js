@@ -41,12 +41,12 @@ exports.getDeactivatedMembersList = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
         if (!workspaceId) {
-            return res.status(400).json({ message: "Workspace ID is required in cookies." });
+            return res.status(400).json({ message: "Workspace ID is required." });
         }
 
         const members = await user.find({ workspaceId, status: false }).select("name email systemRole");
 
-        res.status(200).json({ members: memberDetails.filter(Boolean) });
+        res.status(200).json({ members });
     } catch (error) {
         console.error("Error fetching deactivated members:", error);
         res.status(500).json({ message: error.message || "Server error while fetching deactivated members." });

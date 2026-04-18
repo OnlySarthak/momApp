@@ -1,13 +1,14 @@
-const { get } = require("mongoose");
+const Task = require("../../models/task.model");
+const TeamMember = require("../../models/teamMember.model");
 
 exports.getTasksList = async (req, res) => {
     try {
         const teamId = req.user.teamId;
 
         const totalTasks = await Task.countDocuments({ teamId });
-        const completedTasks = await Task.countDocuments({ teamId, status: "completed" });
-        const pendingTasks = await Task.countDocuments({ teamId, status: "pending" });
-        const toDoTasks = await Task.countDocuments({ teamId, status: "pending" });
+        const completedTasks = await Task.countDocuments({ teamId, state: "completed" });
+        const pendingTasks = await Task.countDocuments({ teamId, state: "pending" });
+        const toDoTasks = await Task.countDocuments({ teamId, state: "pending" });
 
         const tasks = await Task.find({ teamId }).sort({ createdAt: -1 });
 
@@ -24,11 +25,11 @@ exports.getTasksList = async (req, res) => {
     }
 };
 
-getInProgressTasks = async (req, res) => {
+exports.getInProgressTasks = async (req, res) => {
     try {
         const teamId = req.user.teamId;
 
-        const inProgressTasks = await Task.find({ teamId, status: "in-progress" }).sort({ createdAt: -1 });
+        const inProgressTasks = await Task.find({ teamId, state: "in_progress" }).sort({ createdAt: -1 });
 
         res.json(inProgressTasks);
     } catch (error) {
@@ -37,10 +38,10 @@ getInProgressTasks = async (req, res) => {
     }
 }
 
-getCompletedTasks = async (req, res) => {
+exports.getCompletedTasks = async (req, res) => {
     try {
         const teamId = req.user.teamId;
-        const completedTasks = await Task.find({ teamId, status: "completed" }).sort({ createdAt: -1 });
+        const completedTasks = await Task.find({ teamId, state: "completed" }).sort({ createdAt: -1 });
 
         res.json(completedTasks);
     } catch (error) {
@@ -49,10 +50,10 @@ getCompletedTasks = async (req, res) => {
     }
 }
 
-getPendingTasks = async (req, res) => {
+exports.getPendingTasks = async (req, res) => {
     try {
         const teamId = req.user.teamId;
-        const pendingTasks = await Task.find({ teamId, status: "pending" }).sort({ createdAt: -1 });
+        const pendingTasks = await Task.find({ teamId, state: "pending" }).sort({ createdAt: -1 });
         res.json(pendingTasks);
     } catch (error) {
         console.error("Error fetching pending tasks:", error);
@@ -63,7 +64,7 @@ getPendingTasks = async (req, res) => {
 exports.assignTask = async (req, res) => {
     try {
         const { taskTitle, assignedToId} = req.body;
-        const assignedTo = await teamMemberModel.findOne({ userId: assignedToId }).
+        const assignedTo = await TeamMember.findOne({ userId: assignedToId }).
             populate('userId', 'name email');
 
         if (!assignedTo) {
@@ -72,7 +73,7 @@ exports.assignTask = async (req, res) => {
 
         const newTask = new Task({
             title: taskTitle,
-            responsibleName: assignedTo.userId.name,
+            resposibleName: assignedTo.userId.name,
             responsibleFunctionalRole: assignedTo.functionalRole,
             responsibleId: assignedTo.userId._id,
             state: "pending",

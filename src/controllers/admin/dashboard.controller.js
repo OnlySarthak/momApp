@@ -1,3 +1,10 @@
+const User = require("../../models/user.model");
+const Meeting = require("../../models/meeting.model");
+const Task = require("../../models/task.model");
+const Team = require("../../models/team.model");
+const TeamMember = require("../../models/teamMember.model");
+const TeamStats = require("../../models/teams.stats.model");
+
 exports.getDashboardData = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId; // Assuming workspace ID is available in req.user
@@ -5,7 +12,7 @@ exports.getDashboardData = async (req, res) => {
         //cards
         const totalUsers = await User.countDocuments({ workspaceId });
         const totalMeetings = await Meeting.countDocuments({ workspaceId });
-        const totalCompletedTasks = await Task.countDocuments({ workspaceId, status: "completed" });
+        const totalCompletedTasks = await Task.countDocuments({ workspaceId, state: "completed" });
         const totalTeams = await Team.countDocuments({ workspaceId });
 
         //Team directory - minimum any 4 active memebers
@@ -15,12 +22,12 @@ exports.getDashboardData = async (req, res) => {
             .limit(4);
 
         //system health 
-        const TasksOfAllTeams = await Task.countDocuments({ workspaceId });
+        const statsOfAllTeams = await TeamStats.find({ teamId: { $in: await Team.find({ workspaceId }).distinct("_id") } });
 
-        const totalTasks = TasksOfAllTeams.map(task => task.totalTasks).reduce((acc, val) => acc + val, 0);
-        const completedTasks = TasksOfAllTeams.map(task => task.completedTasks).reduce((acc, val) => acc + val, 0);
-        const inProgressTasks = TasksOfAllTeams.map(task => task.inProgressTasks).reduce((acc, val) => acc + val, 0);
-        const pendingTasks = TasksOfAllTeams.map(task => task.pendingTasks).reduce((acc, val) => acc + val, 0);
+        const totalTasks = statsOfAllTeams.reduce((acc, stat) => acc + (stat.totalTasks || 0), 0);
+        const completedTasks = statsOfAllTeams.reduce((acc, stat) => acc + (stat.completedTasks || 0), 0);
+        const inProgressTasks = statsOfAllTeams.reduce((acc, stat) => acc + (stat.inProgressTasks || 0), 0);
+        const pendingTasks = statsOfAllTeams.reduce((acc, stat) => acc + (stat.pendingTasks || 0), 0);
         const taskProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
         res.json({

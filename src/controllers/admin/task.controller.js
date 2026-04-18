@@ -5,10 +5,10 @@ exports.getTask = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
 
-        const tasks = await task.find({ workspaceId }).
-            populate('teamId', 'name project')
-            limit(10).
-            sort({ createdAt: -1 });
+        const tasks = await task.find({ workspaceId })
+            .populate('teamId', 'teamName project')
+            .limit(10)
+            .sort({ createdAt: -1 });
 
         res.status(200).json({ success: true, data: tasks });
     } catch (error) {
@@ -17,14 +17,14 @@ exports.getTask = async (req, res) => {
     }
 };
 
-getInProgressTasks = async (req, res) => {
+exports.getInProgressTasks = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
 
-        const tasks = await task.find({ workspaceId, status: 'In Progress' }).
-            populate('teamId', 'name project')
-            limit(10).
-            sort({ createdAt: -1 });
+        const tasks = await task.find({ workspaceId, state: 'in_progress' })
+            .populate('teamId', 'teamName project')
+            .limit(10)
+            .sort({ createdAt: -1 });
 
         res.status(200).json({ success: true, data: tasks });
     }
@@ -38,10 +38,10 @@ exports.getCompletedTasks = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
 
-        const tasks = await task.find({ workspaceId, status: 'Completed' }).
-            populate('teamId', 'name project')
-            limit(10).
-            sort({ createdAt: -1 });
+        const tasks = await task.find({ workspaceId, state: 'completed' })
+            .populate('teamId', 'teamName project')
+            .limit(10)
+            .sort({ createdAt: -1 });
 
         res.status(200).json({ success: true, data: tasks });
     }
@@ -55,10 +55,10 @@ exports.getToDoTasks = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
 
-        const tasks = await task.find({ workspaceId, status: 'pending' }).
-            populate('teamId', 'name project')
-            limit(10).
-            sort({ createdAt: -1 });
+        const tasks = await task.find({ workspaceId, state: 'pending' })
+            .populate('teamId', 'teamName project')
+            .limit(10)
+            .sort({ createdAt: -1 });
         res.status(200).json({ success: true, data: tasks });
     }
     catch (error) {
@@ -67,15 +67,15 @@ exports.getToDoTasks = async (req, res) => {
     }
 };
 
-getTasksByTeam = async (req, res) => {
+exports.getTasksByTeam = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
         const { teamId } = req.params;
 
-        const tasks = await task.find({ workspaceId, teamId }).
-            populate('teamId', 'name project')
-            limit(10).
-            sort({ createdAt: -1 });
+        const tasks = await task.find({ workspaceId, teamId })
+            .populate('teamId', 'teamName project')
+            .limit(10)
+            .sort({ createdAt: -1 });
 
         res.status(200).json({ success: true, data: tasks });
     }
@@ -90,10 +90,10 @@ exports.getTasksByMemberId = async (req, res) => {
         const workspaceId = req.user.workspaceId;
         const { memberId } = req.params;
 
-        const tasks = await task.find({ workspaceId, assignedTo: memberId }).
-            populate('teamId', 'name project')
-            limit(10).
-            sort({ createdAt: -1 });
+        const tasks = await task.find({ workspaceId, responsibleId: memberId })
+            .populate('teamId', 'teamName project')
+            .limit(10)
+            .sort({ createdAt: -1 });
 
         res.status(200).json({ success: true, data: tasks });
     }

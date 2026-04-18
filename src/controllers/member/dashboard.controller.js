@@ -1,3 +1,9 @@
+const teamModel = require("../../models/team.model");
+const meetingModel = require("../../models/meeting.model");
+const Task = require("../../models/task.model");
+const TeamMember = require("../../models/teamMember.model");
+const momModel = require("../../models/mom.model");
+
 exports.getDashboardData = async (req, res) => {
     try {
         const teamId = req.user.teamId;
@@ -5,20 +11,28 @@ exports.getDashboardData = async (req, res) => {
         const teamDetails = await teamModel.findById(teamId);
 
         const totalTasks = await Task.countDocuments({ responsibleId: req.user._id, teamId });
-        const todaysMeetingCount = await meetingModel.countDocuments({ teamId, date: { $gte: new Date().setHours(0, 0, 0, 0), $lt: new Date().setHours(23, 59, 59, 999) } } });
-        //completed this week and mom you  are will be fake on ui
-        const teamMembers = await teamMembers.find({ teamId }).populate('userId', 'name email');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+
+        const todaysMeetingCount = await meetingModel.countDocuments({ 
+            teamId, 
+            meetingDate: { $gte: today, $lt: tomorrow } 
+        });
+
+        const teamMembersList = await TeamMember.find({ teamId }).populate('userId', 'name email');
 
         const tasks = await Task.find({ responsibleId: req.user._id, teamId }).sort({ createdAt: -1 }).limit(4);
 
-        const recentMOMs = await momModel.find({ teamId }).sort({ date: -1 }).limit(3);
+        const recentMOMs = await momModel.find({ teamId }).sort({ createdAt: -1 }).limit(3);
 
         res.json({
             totalTasks,
             todaysMeetingCount,
             tasks,
             recentMOMs,
-            teamMembers,
+            teamMembers: teamMembersList,
             teamDetails
         });
     } catch (error) {

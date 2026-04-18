@@ -1,23 +1,24 @@
 const Meeting = require('../../models/meeting.model');
 const MOM = require('../../models/mom.model');
-const task = require('../../models/task.model');
+const Task = require('../../models/task.model');
+const Suggestion = require('../../models/suggestion.model');
 const { timeFrameToDate } = require('../../utils/timeframe.util');
 
 exports.getMomList = async (req, res) => {
   try {
-    const { workspaceId } = req.user.workspaceId;
+    const workspaceId = req.user.workspaceId;
     const { timeframe } = req.query;
 
     const dateRange = timeFrameToDate(timeframe);
 
     // Find all MOMs for the given workspaceId, count the number of tasks associated with each MOM and add to that mom document
-    const moms = await MOM.find({ workspaceId, ...dateRange })
+    const moms = await MOM.find({ workspaceId, createdAt: dateRange })
       .populate('meetingId', 'title') // Populate meeting title
       .lean(); // Use lean() to get plain JavaScript objects
 
     // For each MOM, count the number of tasks associated with it
     const momsWithTaskCount = await Promise.all(moms.map(async (mom) => {
-      const taskCount = await task.countDocuments({ momId: mom._id });
+      const taskCount = await Task.countDocuments({ momId: mom._id });
       return { ...mom, taskCount };
     }));
 
@@ -40,9 +41,9 @@ exports.getMomDetails = async (req, res) => {
     }
 
     //pending tasks
-    const pendingTasks = await task.find({ momId: id, status: 'pending' }).lean();
+    const pendingTasks = await Task.find({ momId: id, state: 'pending' }).lean();
     //suggestions
-    const suggestions = await suggestion.find({ momId: id }).lean();
+    const suggestions = await Suggestion.find({ meetingId: momDetails.meetingId }).lean();
 
 
     res.status(200).json({ success: true, data: { ...momDetails, pendingTasks, suggestions } });
