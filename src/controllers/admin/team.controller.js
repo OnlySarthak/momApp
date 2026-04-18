@@ -1,42 +1,9 @@
 const team = require("../../models/team.model");
+//get all team list of a workspace
 const teamMember = require("../../models/teamMember.model");
+const teamStats = require("../../models/teamStats.model");
 const user = require("../../models/user.model");
 
-//get all members of a workspace
-exports.getWorkspaceMembersList = async (req, res) => {
-    try {
-        const workspaceId = req.user.workspaceId;
-
-        if (!workspaceId) {
-            return res.status(400).json({ message: "Workspace ID is required in cookies." });
-        }
-
-        const members = await user.find({ workspaceId }).select("name email systemRole");
-        res.status(200).json({ members });
-    } catch (error) {
-        console.error("Error fetching workspace members:", error);
-        res.status(500).json({ message: error.message || "Server error while fetching workspace members." });
-    }
-};
-
-//get all members on bench (free)
-exports.getBenchMembersList = async (req, res) => {
-    try {
-        const workspaceId = req.user.workspaceId;
-
-        if (!workspaceId) {
-            return res.status(400).json({ message: "Workspace ID is required in cookies." });
-        }
-
-        const members = await user.find({ workspaceId, systemRole: "bench" }).select("name email systemRole");
-        res.status(200).json({ members });
-    } catch (error) {
-        console.error("Error fetching bench members:", error);
-        res.status(500).json({ message: error.message || "Server error while fetching bench members." });
-    }
-};
-
-//get all team list of a workspace
 exports.getTeamsList = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
@@ -46,60 +13,47 @@ exports.getTeamsList = async (req, res) => {
         }
 
         const teams = await team.find({ workspaceId });
-        res.status(200).json({ teams });
+        const teamDetails = await Promise.all(teams.map(async (team) => {
+            const MembersNames = await teamMember.find({ teamId: team._id }).populate("userId", "name");
+            const teamTaskData = await teamStats.findOne({ teamId: team._id }).select("TeamProductivityScore totalTasksCompleted");
+
+            return {
+                id: team._id,
+                teamName: team.teamName,
+                leaderId: team.leaderId,
+                createdBy: team.createdBy,
+                TeamProductivityScore: teamTaskData ? teamTaskData.TeamProductivityScore : 0,
+                totalTasksCompleted: teamTaskData ? teamTaskData.totalTasksCompleted : 0,
+                members: MembersNames.map(member => member.userId.name)
+            };
+        }));
+        
+        res.status(200).json({ teams: teamDetails });
     } catch (error) {
         console.error("Error fetching teams:", error);
         res.status(500).json({ message: error.message || "Server error while fetching teams." });
     }
 };
 
-//get all members of a team
-exports.getTeamMembersList = async (req, res) => {
+exports.addTeam = async (req, res) => {
     try {
-        const { teamId } = req.params;
+        const { teamName, leaderId, project, teamDescription, teamFunctionalRole } = req.body;
+        const createdBy = req.user.id; // Assuming user ID is available in req.user
+        const workspaceId = req.user.workspaceId; // Assuming workspace ID is available in req.user
 
-        if (!teamId) {
-            return res.status(400).json({ message: "Team ID is required in params." });
+        if (!teamName || !leaderId) {
+            return res.status(400).json({ message: "Team name and leader ID are required." });
         }
-
-        const teamMembers = await teamMember.find({ teamId }).
-            populate("userId", "name email systemRole");
-
-        res.status(200).json({ members: teamMembers.map(member => member.userId) });
-    } catch (error) {
-        console.error("Error fetching team members:", error);
-        res.status(500).json({ message: error.message || "Server error while fetching team members." });
-    }
-};
-
-// Create a new team
-exports.createTeam = async (req, res) => {
-    try {
-        const createdBy = req.user.id; // Assuming user ID is available in cookies
-        const workspaceId = req.user.workspaceId; // Assuming workspace ID is available in cookies
-        
-        const {
-            teamName,
-            leaderEmail,
-        } = req.body;
-        
-        //find leader id from email
-        const leaderData = await user.findOne({ email: leaderEmail, workspaceId });
-        
-        //check if leader is exist and on bench in the workspace
-        await checkCreateTeamData(leaderData);
-        
-        console.log("hi")
-        //create team 
-        const leaderId = leaderData._id;
 
         const newTeam = new team({
             workspaceId,
             teamName,
             leaderId,
-            createdBy,
+            project,
+            teamDescription,
+            teamFunctionalRole,
+            createdBy
         });
-
         const savedTeam = await newTeam.save();
 
         //add team leader as a member of the team
@@ -109,252 +63,179 @@ exports.createTeam = async (req, res) => {
             functionalRole: "leader",
             addedBy: createdBy
         });
-
+        await newTeamMember.save();
         //update user system role to leader
         await user.findOneAndUpdate({ _id: leaderId }, { systemRole: "leader" });
-
-
-        await newTeamMember.save();
-
         res.status(201).json({
             id: savedTeam._id,
             teamName: savedTeam.teamName,
             leaderId: savedTeam.leaderId,
+            project: savedTeam.project,
+            teamDescription: savedTeam.teamDescription,
+            teamFunctionalRole: savedTeam.teamFunctionalRole,
             createdBy: savedTeam.createdBy
         });
     } catch (error) {
         console.error("Error creating team:", error);
-        res.status(500).json({ message: error.message || "Server error" });
+        res.status(500).json({ message: error.message || "Server error while creating team." });
     }
 };
 
-// add user in team 
-exports.addUserToTeam = async (req, res) => {
+exports.getTeamDetails = async (req, res) => {
     try {
-        const { userEmail } = req.body;
         const teamId = req.params.teamId;
-
-        const userData = await user.findOne({ email: userEmail, workspaceId: req.user.workspaceId });
-        const userId = userData?._id;
-        if (!userId) {
-            return res.status(400).json({ message: "User with the provided email does not exist." });
+        if (!teamId) {
+            return res.status(400).json({ message: "Team ID is required in params." });
+        }
+        const teamData = await team.findById(teamId);
+        if (!teamData) {
+            return res.status(404).json({ message: "Team not found." });
         }
 
+        const teamMembers = await teamMember.find({ teamId }).populate("userId", "name email systemRole");
+        const teamStatsData = await teamStats.find({teamId});
+        const teamTasksData = await task.find({ teamId }).limit(5).sort({ completedAt: -1 });
+        const recentMeetings = await meeting.find({ teamId }).sort({ meetingDate: -1 }).limit(5);
 
-        //check if team and user exist
-        await checkAddUserToTeamData(teamId, userId);
 
-        const newTeamMember = new teamMember({
-            teamId,
-            userId,
-            addedBy: req.user.id
+        res.status(200).json({
+            id: teamData._id,
+            teamName: teamData.teamName,
+            leaderId: teamData.leaderId,
+            project: teamData.project,
+            teamDescription: teamData.teamDescription,
+            teamFunctionalRole: teamData.teamFunctionalRole,
+            createdBy: teamData.createdBy,
+            members: teamMembers.map(member => ({
+                id: member.userId._id,
+                name: member.userId.name,
+                email: member.userId.email,
+                systemRole: member.userId.systemRole,
+                functionalRole: member.functionalRole
+            })),
+            teamStats: teamStatsData,
+            recentTasks: teamTasksData,
+            recentMeetings: recentMeetings
         });
-
-        //update user system role to member
-        await user.findOneAndUpdate({ _id: userId }, { systemRole: "member" });
-
-        const savedTeamMember = await newTeamMember.save();
-        res.status(201).json(savedTeamMember);
     } catch (error) {
-        console.error("Error adding user to team:", error);
-        res.status(500).json({ message: error.message || "Server error" });
+        console.error("Error fetching team details:", error);
+        res.status(500).json({ message: error.message || "Server error while fetching team details." });
     }
 };
 
-//remove user from team
-exports.removeUserFromTeam = async (req, res) => {
+exports.addTeamMember = async (req, res) => {
+    try {
+        const teamId = req.params.teamId;
+        const { userEmail, systemRole } = req.body;
+        const addedBy = req.user.id; // Assuming user ID is available in req.user
+        if (!teamId) {
+            return res.status(400).json({ message: "Team ID is required in params." });
+        }
+        if (!userEmail) {
+            return res.status(400).json({ message: "User email is required in body." });
+        }
+
+        if( (systemRole !== "member")){
+            return res.status(400).json({ message: "Invalid system role. Please specify either 'member' or 'leader'." });
+        }
+
+        // Check if the user is already a member of the team
+        const existingTeamMember = await teamMember.findOne({ teamId, userId });
+        if (existingTeamMember) {
+            return res.status(400).json({ message: "User is already a member of the team." });
+        }
+
+        //update user
+        const userData = await user.findOneAndUpdate({ email: userEmail, workspaceId: req.user.workspaceId }, { status: true });
+        if (!userData) {
+            return res.status(404).json({ message: "User not found in the workspace." });
+        }
+        const userId = userData._id;
+
+        //create team member entry
+        const newTeamMember = new teamMember({
+            teamId,
+            userId
+        });
+        await newTeamMember.save();
+        
+        res.status(201).json({ message: "User added to team successfully." });
+    }
+    catch (error) {
+        console.error("Error adding user to team:", error);
+        res.status(500).json({ message: error.message || "Server error while adding user to team." });
+    }
+};
+
+exports.removeTeamMember = async (req, res) => {
     try {
         const teamId = req.params.teamId;
         const userId = req.params.userId;
-
-        //check if team and user exist
-        await checkRemoveUserFromTeamData(teamId, userId);
-
-        await teamMember.deleteOne({ teamId, userId });
-        await user.findOneAndUpdate({ _id: userId }, { systemRole: "bench" });
-
-        //check if user is removed from team successfully
-        const removedTeamMember = await teamMember.findOne({ teamId, userId });
-        if (removedTeamMember) {
-            throw new Error("Failed to remove user from team");
+        if (!teamId || !userId) {
+            return res.status(400).json({ message: "Team ID and User ID are required in params." });
         }
 
-        res.status(200).json({ message: "User removed from team successfully" });
-    } catch (error) {
+        //remove team member entry
+        const removedMember = await teamMember.findOneAndDelete({ teamId, userId });
+        if (!removedMember) {
+            return res.status(404).json({ message: "Team member not found." });
+        }
+
+        //update user  status to false
+        const updatedUser = await user.findOneAndUpdate({ _id: userId }, { status: false });
+        if (!updatedUser) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        res.status(200).json({ message: "User removed from team successfully." });
+    }
+    catch (error) {
         console.error("Error removing user from team:", error);
-        res.status(500).json({ message: error.message || "Server error" });
-    }
+        res.status(500).json({ message: error.message || "Server error while removing user from team." });
+    }   
 };
 
-// delete a team
-exports.deleteTeam = async (req, res) => {
-    try {
-        const { teamId } = req.params;
-
-        //check if team exist
-        await checkDeleteTeamData(teamId, req.user.id);
-
-        //delete all team members first, update users and then delete the team
-        const teamMembers = await teamMember.find({ teamId });
-        for (const member of teamMembers) {
-            await user.findOneAndUpdate({ _id: member.userId }, { systemRole: "bench" });
-        }
-        await teamMember.deleteMany({ teamId });
-
-        await team.deleteOne({ _id: teamId });
-
-        //check if team is deleted successfully
-        const deletedTeam = await team.findOne({ _id: teamId });
-        if (deletedTeam) {
-            throw new Error("Failed to delete team");
-        }
-
-        res.status(200).json({ message: "Team deleted successfully" });
-    } catch (error) {
-        console.error("Error deleting team:", error);
-        res.status(500).json({ message: error.message || "Server error" });
-    }
-};
-
-// change team leader
-exports.changeTeamLeader = async (req, res) => {
+exports.replaceTeamLeader = async (req, res) => {
     try {
         const teamId = req.params.teamId;
-        const createdBy = req.user.id; // Assuming user ID is available in req.user
         const { newLeaderEmail } = req.body;
-        const newLeaderData = await user.findOne({ email: newLeaderEmail, workspaceId: req.user.workspaceId });
-        const newLeaderId = newLeaderData?._id;
-        if (!newLeaderId) {
-            return res.status(400).json({ message: "User with the provided email does not exist." });
+        const changedBy = req.user.id; // Assuming user ID is available in req.user
+        if (!teamId) {
+            return res.status(400).json({ message: "Team ID is required in params." });
+        }
+        if (!newLeaderEmail) {
+            return res.status(400).json({ message: "New leader email is required in body." });
         }
 
-
-        //check if team and new leader exist
-        await checkChangeTeamLeaderData(newLeaderId, teamId, createdBy);
-
-        //find old leader id
         const teamData = await team.findById(teamId);
         if (!teamData) {
-            return res.status(400).json({ message: "Team with the provided ID does not exist." });
+            return res.status(404).json({ message: "Team not found." });
         }
+        const newLeaderData = await user.findOne({ email: newLeaderEmail, workspaceId: teamData.workspaceId });
+        if (!newLeaderData) {
+            return res.status(404).json({ message: "New leader not found in the workspace." });
+        }
+
+        //update old leader membership and status
         const oldLeaderId = teamData.leaderId;
+        await teamMember.findOneAndDelete({ teamId, userId: oldLeaderId });
+        await user.findOneAndUpdate({ _id: oldLeaderId }, { status: false });
 
         //update team with new leader id
-        const updatedTeam = await team.findOneAndUpdate(
-            { _id: teamId, createdBy },
-            { leaderId: newLeaderId },
-            { new: true }
-        );
+        await user.findOneAndUpdate({ _id: newLeaderData._id }, { status: true });
+        await team.findOneAndUpdate({ _id: teamId }, { leaderId: newLeaderData._id });
+        await teamMember.create({ teamId, userId: newLeaderData._id, functionalRole: "leader", addedBy: changedBy });
 
-        //update old leader membership
-        await teamMember.findOneAndDelete({ teamId, userId: oldLeaderId });
-        await user.findOneAndUpdate({ _id: oldLeaderId }, { systemRole: "bench" });
-
-        //update new leader membership
-        const newTeamMember = new teamMember({
-            teamId,
-            userId: newLeaderId,
-            functionalRole: "leader",
-            addedBy: req.user.id
+        res.status(200).json({ message: "Team leader replaced successfully." ,
+                newLeader: {
+                    id: newLeaderData._id,
+                    name: newLeaderData.name,
+                    email: newLeaderData.email
+                }
         });
-        await newTeamMember.save();
-        await user.findOneAndUpdate({ _id: newLeaderId }, { systemRole: "leader" });
-
-
-        res.status(200).json(updatedTeam);
-    } catch (error) {
-        console.error("Error changing team leader:", error);
-        res.status(500).json({ message: error.message || "Server error" });
+    }
+    catch (error) {
+        console.error("Error replacing team leader:", error);
+        res.status(500).json({ message: error.message || "Server error while replacing team leader." });
     }
 };
-
-
-//validation functions 
-
-async function checkCreateTeamData(leaderData) {
-    if (!leaderData) {
-        throw new Error("Leader data is required");
-    }
-
-    if (leaderData.systemRole != "bench") {
-        throw new Error("Leader must be on bench");
-    }
-}
-
-async function checkAddUserToTeamData(teamId, userId) {
-    if (!teamId || !userId) {
-        throw new Error("Team ID and User ID are required");
-    }
-
-    //check if team exist
-    const teamData = await team.findOne({ _id: teamId });
-    if (!teamData) {
-        throw new Error("Invalid team ID");
-    }
-
-    //check if user exist and on bench in the workspace
-    const userData = await user.findOne({ _id: userId, workspaceId: teamData.workspaceId });
-    if (!userData) {
-        throw new Error("Invalid user ID or user is not a member of the workspace associated with this team");
-    }
-    if (userData.systemRole !== "bench") {
-        throw new Error("User is not on bench and cannot be added to the team");
-    }
-
-    return true;
-}
-
-async function checkDeleteTeamData(teamId, createdBy) {
-    const teamData = await team.findOne({ _id: teamId, createdBy });
-    if (!teamData) {
-        throw new Error("Invalid team ID or user is not authorized to delete this team");
-    }
-}
-
-async function checkChangeTeamLeaderData(newLeaderId, teamId, createdBy) {
-
-    if (!teamId || !newLeaderId) {
-        throw new Error("Team ID and New Leader ID are required");
-    }
-
-    //check if team exist and is created by the user
-    const teamData = await team.findOne({
-        _id: teamId,
-        createdBy
-    });
-    if (!teamData) {
-        throw new Error("Invalid team ID or user is not authorized to change team leader for this team");
-    }
-
-    //check if new leader exist and on bench in the workspace
-    const userData = await user.findOne({ _id: newLeaderId, workspaceId: teamData.workspaceId });
-    if (!userData) {
-        throw new Error("Invalid new leader ID or user is not a member of the workspace associated with this team");
-    }
-    if (userData.systemRole !== "bench") {
-        throw new Error("User is not on bench and cannot be assigned as team leader");
-    }
-
-    return true;
-}
-
-async function checkRemoveUserFromTeamData(teamId, userId) {
-
-    if (!teamId || !userId) {
-        throw new Error("Team ID and User ID are required");
-    }
-
-    //check if team exist
-    const teamData = await team.findOne({ _id: teamId });
-    if (!teamData) {
-        throw new Error("Invalid team ID");
-    }
-
-    //check if user exist and is a member of the team
-    const teamMemberData = await teamMember.findOne({ teamId, userId });
-    if (!teamMemberData) {
-        throw new Error("User is not a member of the team");
-    }
-
-    return true;
-}

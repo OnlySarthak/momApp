@@ -14,6 +14,18 @@ const teamSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    teamDescription: {
+      type: String,
+      default: "",
+    },
+    teamFunctionalRole: {
+      type: String,
+      default: "",
+    },
+    project : {
+      type: String,
+      default: ""
+    },
     leaderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

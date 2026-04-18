@@ -54,39 +54,27 @@ exports.getMomDetails = async (req, res) => {
   } 
 };
 
-approveSuggestion = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const suggestionDetails = await suggestion.findOneAndUpdate(
-      { _id: id },
-      { $set: { status: 'accepted' } },
-      { new: true }
-    ).lean();
+exports.sendSuggestion = async (req, res) => {
+    try {
+        const { id } = req.params; // MOM ID
+        const { content } = req.body;
 
-    if (!suggestionDetails) {
-      return res.status(404).json({ success: false, message: 'Suggestion not found' });
+        const momDetails = await MOM.findById(id);
+        if (!momDetails) {
+            return res.status(404).json({ success: false, message: 'MOM not found' });
+        }
+
+        const newSuggestion = new suggestion({
+            momId: id,
+            content,
+            suggestedBy: req.user._id,
+            status: 'pending'
+        });
+        await newSuggestion.save();
+
+        res.status(201).json({ success: true, data: newSuggestion });
+    } catch (error) {
+        console.error('Error sending suggestion:', error);
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
-
-    res.status(200).json({ success: true, data: suggestionDetails });
-  } catch (error) {
-    console.error('Error approving suggestion:', error);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
-};
-
-exports.editMOM = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updateData = req.body;
-
-    const updatedMOM = await MOM.findByIdAndUpdate(id, updateData, { new: true }).lean();
-
-    if (!updatedMOM) {
-      return res.status(404).json({ success: false, message: 'MOM not found' });
-    }
-    res.status(200).json({ success: true, data: updatedMOM });
-  } catch (error) {
-    console.error('Error editing MOM:', error);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
 };

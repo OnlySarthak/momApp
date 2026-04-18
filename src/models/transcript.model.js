@@ -9,14 +9,20 @@ const transcriptSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    type: {
-      type: String,
-      enum: ["raw", "clean"],
+    MOMId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Mom",
       required: true,
+      index: true,
     },
     content: {
-      type: String,
-      required: true,
+      type: [
+        {
+          speaker: String,
+          text: String,
+          timestamp: Time,
+        },
+      ]
     },
   },
   { timestamps: true }

@@ -4,7 +4,7 @@ const team = require("../models/team.model");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = process.env;
 
-exports.auth = (req, res, next) => {
+exports.auth = async (req, res, next) => {
     try {
         const token = req.cookies.token;
 
@@ -13,6 +13,15 @@ exports.auth = (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        //if user is non admin and non bench then attach teamId to decoded
+        if (decoded.systemRole !== "admin" && decoded.systemRole !== "bench") {
+            const teamMemberInfo = await teamMember.findOne({ userId: decoded.id });
+            if (!teamMemberInfo) {
+                return res.status(404).json({ message: "User is not a member of any team" });
+            }
+            decoded.teamId = teamMemberInfo.teamId;
+        }
 
         // attach user info to request
         req.user = decoded;

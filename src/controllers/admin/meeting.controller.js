@@ -1,35 +1,55 @@
 const meeting = require("../../models/meeting.model");
-// const teamstats = require("../../models/teamStats.model");
+const Mom = require("../../models/mom.model");
+const Transcript = require("../../models/transcript.model");
+const { timeFrameToDate } = require("../../utils/timeframe.util");
 
-//view all meeting of workspace
-exports.getAllMeetings = async (req, res) => {
+exports.getMeetingList = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId; // Assuming workspace ID is available in req.user
-        const meetings = await meeting.find({ workspaceId }).lean();
-        res.status(200).json(meetings);
+        const timeframe = req.query.timeframe; // Get the timeframe from query parameters
+
+        const dateRange = timeFrameToDate(timeframe);
+        const recentMeetings = await meeting.find({ workspaceId, meetingDate: { $gte: dateRange } })
+            .sort({ meetingDate: -1 }); // Sort by meeting date in descending order
+
+        const meetingDataWithAttendees = await Promise.all(recentMeetings.map(async (meeting) => {
+            const attendees = await Mom.find({ meetingId: meeting._id }).select("presentAttendees").select("presentAttendees.name");S
+            return {
+                ...meeting.toObject(),
+                attendees: attendees.flatMap(mom => mom.presentAttendees.map(attendee => attendee.name)) // Extract attendee names
+            };
+        }));
+        
+        res.status(200).json({ success: true, data: meetingDataWithAttendees });
     } catch (error) {
-        console.error("Error fetching meetings:", error);
-        res.status(500).json({ message: "Server error" });
+        console.error("Error fetching recent meetings:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
     }
 };
 
-//view meeting details
-exports.getMeetingById = async (req, res) => {
+exports.getMeetingDetails = async (req, res) => {
     try {
-        const { id } = req.params;
-        const workspaceId = req.user.workspaceId; // Assuming workspace ID is available in req.user
-
-        //will also add team stats in meeting details
-        // const teamStatsData = await teamstats.findOne({ meetingId: id });
-
-        const meetingDetails = await meeting.findOne({ _id: id, workspaceId });
+        const meetingId = req.params.id; // Get the meeting ID from request parameters
+        
+        const meetings = await meeting.findById(meetingId);
         if (!meetingDetails) {
-            return res.status(404).json({ message: "Meeting not found" });
+            return res.status(404).json({ success: false, message: "Meeting not found" });
         }
-        res.status(200).json({ meetingDetails });
-    } catch (error) {
+
+        const meetingDetails = await Promise.all([meetings.map(async (meeting) => {
+            const momDetails = await Mom.findOne({ meetingId: meeting._id });
+            const transcripts = await Transcript.find({ meetingId: meeting._id });
+            return {
+                ...meeting.toObject(),
+                mom: momDetails,
+                transcripts: transcripts
+            };
+        })]);
+
+        res.status(200).json({ success: true, data: meetingDetails });
+    }
+    catch (error) {
         console.error("Error fetching meeting details:", error);
-        res.status(500).json({ message: "Server error" });
+        res.status(500).json({ success: false, message: "Server Error" });
     }
 };
-

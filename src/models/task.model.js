@@ -34,6 +34,18 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       default: Date.now
     },
+    workspaceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Workspace",
+      required: true,
+      index: true,
+    },
+    teamId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Team",
+      required: true,
+      index: true,
+    },
   },
   { timestamps: true }
 );

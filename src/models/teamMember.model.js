@@ -16,14 +16,10 @@ const teamMemberSchema = new mongoose.Schema(
     },
     functionalRole: {
       type: String,
-      enum: ["developer", "designer", "tester", "leader", "other", null],
+      enum: ["Developer", "Designer", "QA Engineer", "DevOps", "Product Manager", "Tester",
+        "Adviser", null],
       default: null,
-    },
-    addedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
+    }
   },
   { timestamps: true }
 );

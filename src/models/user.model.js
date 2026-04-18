@@ -23,8 +23,12 @@ const userSchema = new mongoose.Schema(
     },
     systemRole: {
       type: String,
-      enum: ["admin", "leader", "member", "bench"],
+      enum: ["admin", "leader", "member"],
       required: true,
+    },
+    status: {
+      type: Boolean,
+      default: false,
     },
     workspaceId: {
       type: mongoose.Schema.Types.ObjectId,

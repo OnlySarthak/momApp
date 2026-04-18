@@ -1,39 +1,45 @@
-const workspaceModel = require('../../models/workspace.model');
-
-// Create a new workspace
-exports.createWorkspace = async (req, res) => {
+exports.register = async (req, res) => {
     try {
-        const { name } = req.body;
-        const createdBy = req.user._id; // Assuming user ID is available in req.user
-        
-        // Check if workspace name is provided
-        if (!name) {
-            return res.status(400).json({ message: "Workspace name is required" });
+        const { name, email, password, workspaceName } = req.body;
+
+
+        // Check if user already exists
+        const existingUser = await
+            user.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: "User already exists" });
         }
 
-        //check if workspace with the same name already exists
-        const existingWorkspace = await workspaceModel.findOne({
+        // Create new user
+        const newUser = new user({
             name,
-            createdBy
+            email,
+            password,
+            systemRole: "admin", // Set system role to admin for the first user
         });
+        await newUser.save();
 
-        if (existingWorkspace) {
-            return res.status(400).json({ message: "Workspace with this name already exists" });
-        }
-
-        // Create and save the new workspace
-        const newWorkspace = new workspaceModel({
-            name,
-            createdBy,
+        // Create new workspace and associate it with the user
+        const newWorkspace = new workspace({
+            name: workspaceName,
+            adminId: newUser._id,
         });
+        await newWorkspace.save();
 
-        const savedWorkspace = await newWorkspace.save();
-        res.status(201).json(savedWorkspace);
-    }
-    catch (error) {
-        console.error("Error creating workspace:", error);
+        // Update user's workspaceId
+        newUser.workspaceId = newWorkspace._id;
+        await newUser.save();
+
+        //login user
+        const token = newUser.generateAuthToken();
+
+        res.cookie("token", token);
+
+        res.status(201).json({ message: "User and workspace created successfully" });
+    } catch (error) {
+        console.error("Error registering user and creating workspace:", error);
         res.status(500).json({ message: "Server error" });
+
     }
 };
-
 

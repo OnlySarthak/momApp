@@ -1,22 +1,14 @@
 // models/meeting.model.js
 const mongoose = require("mongoose");
-
-const participantSchema = new mongoose.Schema(
-  {
-    id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-  },
-  { _id: false }
-);
-
 const meetingSchema = new mongoose.Schema(
   {
     title: {
       type: String,
       required: true
+    },
+    projectName: {
+      type: String,
+      default: ""
     },
     workspaceId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -56,10 +48,6 @@ const meetingSchema = new mongoose.Schema(
         "failed"
       ],
       default: "initialized"
-    },
-    participants: {
-      type: [participantSchema],
-      default: []
     }
   },
   { timestamps: true }

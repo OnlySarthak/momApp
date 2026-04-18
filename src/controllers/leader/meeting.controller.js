@@ -1,128 +1,105 @@
 const meeting = require("../../models/meeting.model");
+const momModel = require("../../models/mom.model");
 const teamMember = require("../../models/teamMember.model");
 const { startMeetingProcessingInBackground } = require("./meetingHelper");
+const { timeFrameToDate } = require("../../utils/timeframe.util");
 
-//create meeting with empty things - before file get uploaded to aws s3
-exports.createMeeting = async (req, res) => {
+exports.getMeetingList = async (req, res) => {
     try {
-        const workspaceId = req.user.workspaceId;
-        const leaderId = req.user.id;
-        const leaderName = req.user.name;
+        const teamId = req.user.teamId;
 
-        const {
-            title,
+       const filter = req.query.filter || "today";
+       const dateFilter = getMeetingListHelper(filter);
+
+        const meetings = await meeting.find({
             teamId,
-            meetingDate,
-        } = req.body;
-
-        const teamMembersData = await teamMember.find({ teamId}).select("userId");
-        participants = teamMembersData.map(tm => tm.userId);
-        
-        //validation
-        await validateCreateMeetingData(req.body, workspaceId, leaderId, participants);
-
-        //fetch all teamMembers data for participants
-
-        //create meeting
-        const newMeeting = new meeting({
-            title,
-            workspaceId,
-            teamId,
-            leaderId,
-            leaderName,
-            meetingDate,
-            participants: participants.map(userId => ({ id: userId }))
+            ...dateFilter
         });
 
-        await newMeeting.save();
+        const meetingWithMembersNames = await Promise.all(meetings.map(async (m) => {
+            const memberNames = await momModel.find({ meetingId: m._id }).select('presentAttendees.name -_id');
+            return {
+                ...m.toObject(),
+                memberNames
+            };
+        }));
 
-        res.status(201).json({ message: "Meeting created successfully", meetingId: newMeeting._id });
-
+        res.json(meetingWithMembersNames);
     } catch (error) {
-        console.error("Error creating meeting:", error);
-        res.status(500).json({ message: error.message || "Internal server error" });
+        console.error("Error fetching today's meetings:", error);
+        res.status(500).json({ message: "Failed to fetch today's meetings" });
+    }
+}
+
+exports.initiateMeeting = async (req, res) => {
+    try {
+        const { title, agenda, project } = req.body;
+
+        const newMeeting = new meeting({
+            teamId: req.user.teamId,
+            title,
+            agenda,
+            project,
+            meetingDate: new Date()
+        });
+
+        const savedMeeting = await newMeeting.save();
+
+        // Start background processing for the meeting
+        startMeetingProcessingInBackground(savedMeeting._id);
+
+        res.status(201).json({ message: "Meeting initiated successfully", meetingId: savedMeeting._id });
+    } catch (error) {
+        console.error("Error initiating meeting:", error);
+        res.status(500).json({ message: "Failed to initiate meeting" });
     }
 };
 
-//start processing meeting after file get uploaded to aws s3
-exports.startMeetingProcessing = async (req, res) => {
+exports.startMeetingProcessingInBackground = async (meetingId) => {
     try {
         const { meetingId } = req.params;
-        const { audioFileUrl } = req.body;
+        const { audioUrl } = req.body;
 
-        // //validate data 
-        // await validateStartMeetingProcessingData(meetingId, audioFileUrl);
+        // Start the meeting processing in the background
+        await startMeetingProcessingInBackground(meetingId, audioUrl);
 
-        // //update meeting with audio file url and change processing stage to "uploaded"
-        // const updatedMeeting = await meeting.findByIdAndUpdate(
-        //     meetingId,
-        //     { audioFileUrl, processingStage: "uploaded" },
-        //     { new: true }
-        // );
-        // if (!updatedMeeting) {
-        //     return res.status(404).json({ message: "Meeting not found" });
-        // }
-
-        //start meeting processing in background
-        await startMeetingProcessingInBackground(meetingId, audioFileUrl).catch(error => {
-            console.error("Error in background meeting processing:", error);
-        });
-
-        res.status(200).json({
-            message: "Meeting processing started successfully",
-            // meeting: updatedMeeting
-        });
-
+        res.status(200).json({ message: "Meeting processing started successfully" });
     } catch (error) {
         console.error("Error starting meeting processing:", error);
-        res.status(500).json({ message: error.message || "Internal server error" });
+        res.status(500).json({ message: "Failed to start meeting processing" });
     }
 };
 
-exports.getMeetings = async (req, res) => {
-    // Implementation for fetching meetings
+exports.deleteMeeting = async (req, res) => {
     try {
-        //take userId from req.user and we assume user is leader
-        const userId = req.user._id;
-        
-        const meetings = await meeting.find({ workspaceId });
-        res.status(200).json(meetings);
+        const meetingId = req.params.id;
+        await meeting.findByIdAndDelete(meetingId);
+        //delete associated MOM and transcripts and tasks 
+        const mom = await momModel.findOneAndDelete({ meetingId });
+        await Transcript.deleteMany({ meetingId });
+        await Task.deleteMany({ meetingId });
+
+
+        res.status(200).json({ message: "Meeting deleted successfully" });
     } catch (error) {
-        console.error("Error fetching meetings:", error);
-        res.status(500).json({ message: "Internal server error" });
+        console.error("Error deleting meeting:", error);
+        res.status(500).json({ message: "Failed to delete meeting" });
     }
-}
+};
 
-//background processing function
+exports.getMeetingDetails = async (req, res) => {
+    try {
+        const meetingId = req.params.id;
+        const meetingDetails = await meeting.findById(meetingId);
+        if (!meetingDetails) {
+            return res.status(404).json({ message: "Meeting not found" });
+        }
+        const momDetails = await momModel.findOne({ meetingId });
+        const transcripts = await Transcript.find({ meetingId });
 
-async function validateCreateMeetingData(data, workspaceId, leaderId, participants) {
-    const { title, teamId, meetingDate } = data;
-
-    //title validation
-    if (!title || typeof title !== "string") {
-        throw new Error("Title is required and must be a string");
+        res.status(200).json({ meetingDetails, momDetails, transcripts });
+    } catch (error) {
+        console.error("Error fetching meeting details:", error);
+        res.status(500).json({ message: "Failed to fetch meeting details" });
     }
-
-    //teamId validation
-    if (!teamId || typeof teamId !== "string") {
-        throw new Error("Team ID is required and must be a string");
-    }
-
-    //meetingDate validation
-    if (!meetingDate || isNaN(Date.parse(meetingDate))) {
-        throw new Error("Valid meeting date is required");
-    }
-}
-
-async function validateStartMeetingProcessingData(meetingId, audioFileUrl) {
-    //meetingId validation
-    if (!meetingId || typeof meetingId !== "string") {
-        throw new Error("Meeting ID is required and must be a string");
-    }
-
-    //audioFileUrl validation
-    if (!audioFileUrl || typeof audioFileUrl !== "string") {
-        throw new Error("Audio file URL is required and must be a string");
-    }
-}
-
+};

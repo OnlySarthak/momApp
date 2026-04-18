@@ -1,40 +1,73 @@
-const task = require("../../models/task.model");
-
-exports.getTasksForMember = async (req, res) => {
+exports.getTasksList = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const tasks = await task.find({ assignedTo: userId, status: { $in: ["pending", "in-proccess"] } })
-            .populate("title date time status");
-        res.json(tasks);
+        const userId = req.user._id;
+        const teamId = req.user.teamId;
+
+        const totalTasks = await Task.countDocuments({ teamId, assignedTo: userId });
+        const completedTasks = await Task.countDocuments({ teamId, assignedTo: userId, status: "completed" });
+        const pendingTasks = await Task.countDocuments({ teamId, assignedTo: userId, status: "pending" });
+        const inProgressTasks = await Task.countDocuments({ teamId, assignedTo: userId, status: "in-progress" });
+
+        const tasks = await Task.find({ teamId, assignedTo: userId }).sort({ createdAt: -1 });
+
+        res.json({
+            totalTasks,
+            completedTasks,
+            pendingTasks,
+            inProgressTasks,
+            tasks
+        });
     } catch (error) {
-        console.error("Error fetching tasks for member:", error);
-        res.status(500).json({ error: "An error occurred while fetching tasks." });
+        console.error("Error fetching tasks:", error);
+        res.status(500).json({ message: "Failed to fetch tasks" });
     }
 };
 
-exports.updateTaskStatus = async (req, res) => {
+getTasksbyFilter = async (req, res) => {
     try {
-        const taskId = req.params.id;
-        const { status } = req.body;
+        const userId = req.user._id;
+        const teamId = req.user.teamId;
+        const statusFilter = req.query.status;
 
-        // status must be inproccess or completed
-        if (!["in-proccess", "completed"].includes(status)) {
-            return res.status(400).json({ error: "Invalid status. Status must be 'in-proccess' or 'completed'." });
+        if (!["pending", "in-progress", "completed"].includes(statusFilter)) {
+            return res.status(400).json({ message: "Invalid status filter" });
         }
 
-        const taskToUpdate = await task.findOne({ _id: taskId });
+        const tasks = await Task.find({ teamId, assignedTo: userId, status: statusFilter }).sort({ createdAt: -1 });
 
-        if (!taskToUpdate) {
-            return res.status(404).json({ error: "Task not found." });
-        }
-
-        taskToUpdate.status = status;
-        await taskToUpdate.save();
-        
-        res.json(taskToUpdate);
+        res.json(tasks);
+    } catch (error) {
+        console.error("Error fetching tasks by filter:", error);
+        res.status(500).json({ message: "Failed to fetch tasks by filter" });
     }
-    catch (error) {
-        console.error("Error updating task status:", error);
-        res.status(500).json({ error: "An error occurred while updating task status." });
+}
+
+exports.assignTask = async (req, res) => {
+    try {
+        const { name, userId, } = req.user;
+        const { taskTitle} = req.body;
+        const assignedTo = await teamMemberModel.findOne({ userId: userId }).
+            populate('userId', 'name email');
+
+        if (!assignedTo) {
+            return res.status(404).json({ message: "Assigned user not found" });
+        }
+
+        const newTask = new Task({
+            title: taskTitle,
+            responsibleName: assignedTo.userId.name,
+            responsibleFunctionalRole: assignedTo.functionalRole,
+            responsibleId: assignedTo.userId._id,
+            state: "pending",
+            momId: null,
+            workspaceId: req.user.workspaceId,
+            teamId: req.user.teamId
+        });
+
+        await newTask.save();
+        res.status(201).json({ message: "Task created successfully", task: newTask });
+    } catch (error) {
+        console.error("Error creating task:", error);
+        res.status(500).json({ message: "Failed to create task" });
     }
 };

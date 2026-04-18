@@ -10,11 +10,15 @@ const teamStatsSchema = new mongoose.Schema(
       ref: "Team",
       unique: true,
     },
+    TeamProductivityScore: { type: Number, default: 0 },
+    MeetingAttendanceRateOfLastMeeting: { type: Number, default: 0 },
+    TaskCompletionRateOfLastMeeting: { type: Number, default: 0 },
     totalTasks: { type: Number, default: 0 },
     completedTasks: { type: Number, default: 0 },
     inProgressTasks: { type: Number, default: 0 },
     pendingTasks: { type: Number, default: 0 },
     lastUpdated: { type: Date, default: Date.now },
+
   },
   { timestamps: true }
 );
