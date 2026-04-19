@@ -1,6 +1,7 @@
-const team = require("../../models/team.model");
-const teamMember = require("../../models/teamMember.model");
-const user = require("../../models/user.model");
+const Team = require("../../models/team.model");
+const TeamMember = require("../../models/teamMember.model");
+const User = require("../../models/user.model");
+const bcrypt = require("bcrypt");
 
 //get all members of a workspace
 exports.getWorkspaceMembersList = async (req, res) => {
@@ -11,7 +12,7 @@ exports.getWorkspaceMembersList = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required in cookies." });
         }
 
-        const members = await user.find({ workspaceId });
+        const members = await User.find({ workspaceId });
         //get teamMember details and team details for each member 
 
         const memberDetails = await Promise.all(members.map(async (member) => {
@@ -19,7 +20,7 @@ exports.getWorkspaceMembersList = async (req, res) => {
                 return null; // Skip deactivated members for team details
             }
 
-            const teamMemberData = await teamMember.findOne({ userId: member._id }).populate("teamId", "functionalRole");
+            const teamMemberData = await TeamMember.findOne({ userId: member._id }).populate("teamId", "functionalRole");
 
             return {
                 id: member._id,
@@ -37,6 +38,7 @@ exports.getWorkspaceMembersList = async (req, res) => {
     }
 };
 
+//need workspaceId from req.user
 exports.getDeactivatedMembersList = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
@@ -44,7 +46,7 @@ exports.getDeactivatedMembersList = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required." });
         }
 
-        const members = await user.find({ workspaceId, status: false }).select("name email systemRole");
+        const members = await User.find({ workspaceId, status: false }).select("name email systemRole");
 
         res.status(200).json({ members });
     } catch (error) {
@@ -53,6 +55,7 @@ exports.getDeactivatedMembersList = async (req, res) => {
     }
 };
 
+//need workspaceId from req.user
 exports.getActiveMembersList = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
@@ -60,11 +63,11 @@ exports.getActiveMembersList = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required in cookies." });
         }
 
-        const members = await user.find({ workspaceId, status: true }).select("name email systemRole");
+        const members = await User.find({ workspaceId, status: true }).select("name email systemRole");
 
         const memberDetails = await Promise.all(members.map(async (member) => {
-            
-            const teamMemberData = await teamMember.find({ userId: member._id }).populate("teamId", "functionalRole");
+
+            const teamMemberData = await TeamMember.find({ userId: member._id }).populate("teamId", "functionalRole");
 
             return {
                 id: member._id,
@@ -82,24 +85,26 @@ exports.getActiveMembersList = async (req, res) => {
     }
 };
 
+//need workspaceId from req.user
+//need role from req.params
 exports.getMembersByRole = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
         const { role } = req.params;
-        if(!role || !["admin","leader", "member"].includes(role)) {
+        if (!role || !["admin", "leader", "member"].includes(role)) {
             return res.status(400).json({ message: "Invalid role parameter. Role must be 'admin', 'member', or 'bench'." });
         }
         if (!workspaceId) {
             return res.status(400).json({ message: "Workspace ID is required in cookies." });
         }
 
-        const members = await user.find({ workspaceId, systemRole: role }).select("name email systemRole");
+        const members = await User.find({ workspaceId, systemRole: role }).select("name email systemRole");
 
         const memberDetails = await Promise.all(members.map(async (member) => {
             if (member.status === false) {
                 return null; // Skip deactivated members for team details
             }
-            const teamMemberData = await teamMember.find({ userId: member._id }).populate("teamId", "functionalRole");
+            const teamMemberData = await TeamMember.find({ userId: member._id }).populate("teamId", "functionalRole");
             return {
                 id: member._id,
                 name: member.name,
@@ -118,6 +123,8 @@ exports.getMembersByRole = async (req, res) => {
     }
 };
 
+//need workspaceId from req.user
+//need name, email, systemRole, password from req.body
 exports.addUser = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
@@ -128,18 +135,18 @@ exports.addUser = async (req, res) => {
         if (!workspaceId) {
             return res.status(400).json({ message: "Workspace ID is required in cookies." });
         }
-        if (!["admin", "leader", "member"].includes(systemRole)) {
+        if (!["leader", "member"].includes(systemRole)) {
             return res.status(400).json({ message: "Invalid system role. Role must be 'admin', 'leader', or 'member'." });
         }
 
-        const existingUser = await user.findOne({ email, workspaceId });
+        const existingUser = await User.findOne({ email, workspaceId });
         if (existingUser) {
             return res.status(400).json({ message: "A user with this email already exists in the workspace." });
         }
 
-        const hashedPassword = await user.hashPassword(password);
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        const newUser = new user({ name, email, systemRole, workspaceId, passwordHash: hashedPassword });
+        const newUser = new User({ name, email, systemRole, workspaceId, passwordHash: hashedPassword });
         await newUser.save();
 
         res.status(201).json({ message: "User added successfully.", user: newUser });

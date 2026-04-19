@@ -1,6 +1,7 @@
 const Task = require("../../models/task.model");
 const TeamMember = require("../../models/teamMember.model");
 
+//need teamId from req.user
 exports.getTasksList = async (req, res) => {
     try {
         const teamId = req.user.teamId;
@@ -25,6 +26,7 @@ exports.getTasksList = async (req, res) => {
     }
 };
 
+//need teamId from req.user
 exports.getInProgressTasks = async (req, res) => {
     try {
         const teamId = req.user.teamId;
@@ -38,6 +40,7 @@ exports.getInProgressTasks = async (req, res) => {
     }
 }
 
+//need teamId from req.user
 exports.getCompletedTasks = async (req, res) => {
     try {
         const teamId = req.user.teamId;
@@ -50,6 +53,7 @@ exports.getCompletedTasks = async (req, res) => {
     }
 }
 
+//need teamId from req.user
 exports.getPendingTasks = async (req, res) => {
     try {
         const teamId = req.user.teamId;
@@ -61,14 +65,26 @@ exports.getPendingTasks = async (req, res) => {
     }
 }
 
+//need taskTitle and assignedToId from req.body
+//need teamId from req.user
 exports.assignTask = async (req, res) => {
     try {
-        const { taskTitle, assignedToId} = req.body;
-        const assignedTo = await TeamMember.findOne({ userId: assignedToId }).
+        const { taskTitle, assignedToId } = req.body;
+        //check if assigned user is in the same team and non leader
+        const assignedUser = await TeamMember.findOne({ userId: assignedToId, teamId: req.user.teamId });
+        if (!assignedUser) {
+            return res.status(404).json({ message: "Assigned user not found in the team" });
+        }
+        if (assignedUser.functionalRole === "Leader") {
+            return res.status(400).json({ message: "Leader cannot be assigned tasks" });
+        }
+
+
+        const assignedTo = await TeamMember.findOne({ userId: assignedToId, teamId: req.user.teamId }).
             populate('userId', 'name email');
 
         if (!assignedTo) {
-            return res.status(404).json({ message: "Assigned user not found" });
+            return res.status(404).json({ message: "Assigned user not found in the team" });
         }
 
         const newTask = new Task({

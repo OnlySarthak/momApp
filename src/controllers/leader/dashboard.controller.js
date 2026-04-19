@@ -1,8 +1,9 @@
-const momModel = require("../../models/mom.model");
+const MOM = require("../../models/mom.model");
 const Task = require("../../models/task.model");
 const TeamStats = require("../../models/teams.stats.model");
 const TeamMember = require("../../models/teamMember.model");
 
+//need teamId from req.user
 exports.getDashboardData = async (req, res) => {
     try {
         const teamId = req.user.teamId;
@@ -10,11 +11,11 @@ exports.getDashboardData = async (req, res) => {
         const teamProgress = await TeamStats.findOne({ teamId }).select('TeamProductivityScore');
 
         //recent Mom
-        const recentMOM = await momModel.find({ teamId }).sort({ createdAt: -1 }).limit(2).select('MeetingTitle insights createdAt');
+        const recentMOM = await MOM.find({ teamId }).sort({ createdAt: -1 }).limit(2).select('MeetingTitle insights createdAt');
 
         //recents tasks
         const recentTasks = await Task.find({ teamId }).sort({ createdAt: -1 }).limit(4).select('title responsibleId state');
-        
+
         const teamStats = await TeamStats.findOne({ teamId });
 
         const teamMembers = await TeamMember.find({ teamId }).populate('userId', 'name');

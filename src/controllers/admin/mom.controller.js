@@ -4,6 +4,7 @@ const Task = require('../../models/task.model');
 const Suggestion = require('../../models/suggestion.model');
 const { timeFrameToDate } = require('../../utils/timeframe.util');
 
+//need workspaceId from req.user
 exports.getMomList = async (req, res) => {
   try {
     const workspaceId = req.user.workspaceId;
@@ -29,6 +30,7 @@ exports.getMomList = async (req, res) => {
   }
 };
 
+//need momId from req.params
 exports.getMomDetails = async (req, res) => {
   try {
     const { id } = req.params;
@@ -43,13 +45,12 @@ exports.getMomDetails = async (req, res) => {
     //pending tasks
     const pendingTasks = await Task.find({ momId: id, state: 'pending' }).lean();
     //suggestions
-    const suggestions = await Suggestion.find({ meetingId: momDetails.meetingId }).lean();
-
+    const suggestions = await Suggestion.find({ momId: id }).lean();
 
     res.status(200).json({ success: true, data: { ...momDetails, pendingTasks, suggestions } });
   } catch (error) {
     console.error('Error fetching MOM details:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
-  } 
+  }
 };
 

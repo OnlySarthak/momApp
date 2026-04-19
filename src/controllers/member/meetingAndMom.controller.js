@@ -1,32 +1,32 @@
-const meeting = require("../../models/meeting.model");
-const momModel = require("../../models/mom.model");
-const teamMember = require("../../models/teamMember.model");
-const { startMeetingProcessingInBackground } = require("./meetingHelper");
-const { timeFrameToDateRange } = require("../../utils/timeframe.util");
+const Meeting = require("../../models/meeting.model");
+const MOM = require("../../models/mom.model");
+const { timeFrameToDate } = require("../../utils/timeFrameToData");
 
+//need teamId from req.user
+//need filter from req.query
 exports.getMeetingList = async (req, res) => {
     try {
         const teamId = req.user.teamId;
 
-       const filter = req.query.filter || "today";
-       const dateFilter = getMeetingListHelper(filter);
+        const filter = req.query.filter || "today";
+        const dateRange = timeFrameToDate(filter);
 
-        const meetings = await meeting.find({
+        const meetings = await Meeting.find({
             teamId,
-            ...dateFilter
+            meetingDate: dateRange
         });
 
         const meetingWithMembersNames = await Promise.all(meetings.map(async (m) => {
-            const memberNames = await momModel.find({ meetingId: m._id }).select('presentAttendees.name -_id');
+            const momData = await MOM.findOne({ meetingId: m._id }).select('presentAttendees.name -_id');
             return {
                 ...m.toObject(),
-                memberNames
+                memberNames: momData ? momData.presentAttendees : []
             };
         }));
 
         res.json(meetingWithMembersNames);
     } catch (error) {
-        console.error("Error fetching today's meetings:", error);
-        res.status(500).json({ message: "Failed to fetch today's meetings" });
+        console.error("Error fetching meetings:", error);
+        res.status(500).json({ message: "Failed to fetch meetings" });
     }
 }

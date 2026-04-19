@@ -8,13 +8,16 @@ const errorMiddleware = require("./middlewares/error.middleware");
 
 
 // route imports (adjust paths as per your folders)
-const {auth } = require("./middlewares/auth.middleware");
+const { auth } = require("./middlewares/auth.middleware");
 const authRoutes = require("./routes/auth/auth.routes");
-const teamRoutes = require("./routes/admin/team.routes");
-const meetingRoutes = require("./routes/leader/meeting.routes");
-// const meetingRoutes = require("./routes/leader/meeting.routes");
-// const taskRoutes = require("./routes/leader/task.routes");
-// const suggestionRoutes = require("./routes/member/suggestion.routes");
+const adminTeamRoutes = require("./routes/admin/team.routes");
+const adminMainRoutes = require("./routes/admin/admin.routes");
+const leaderMeetingRoutes = require("./routes/leader/meeting.routes");
+const leaderMomRoutes = require("./routes/leader/mom.routes");
+const leaderTaskRoutes = require("./routes/leader/task.routes");
+const leaderTeamRoutes = require("./routes/leader/team.routes");
+const memberRoutes = require("./routes/member/member.routes");
+const profileRoutes = require("./routes/profile.routes");
 
 const app = express();
 app.use(cookieParser());
@@ -37,11 +40,22 @@ app.get("/health", (req, res) => {
 
 app.use("/auth", authRoutes);
 
-// app.use(auth); // Apply auth middleware globally
-app.use("/team", teamRoutes);
-app.use("/leader/meeting", meetingRoutes);
-// app.use("/api/leader/tasks", taskRoutes);
-// app.use("/api/member/suggestions", suggestionRoutes)
+// Admin Routes
+app.use("/admin", adminMainRoutes);
+app.use("/admin/teams", adminTeamRoutes);
+
+// Leader Routes
+app.use("/leader/meetings", leaderMeetingRoutes);
+app.use("/leader/moms", leaderMomRoutes);
+app.use("/leader/tasks", leaderTaskRoutes);
+app.use("/leader/teams", leaderTeamRoutes);
+
+// Member Routes
+app.use("/member", memberRoutes);
+app.use("/member/suggestions", require("./routes/member/suggestion.routes"));
+app.use("/member/tasks", require("./routes/member/task.routes"));
+
+app.use("/profile", profileRoutes);
 
 app.use(errorMiddleware);
 

@@ -5,6 +5,7 @@ const Team = require("../../models/team.model");
 const TeamMember = require("../../models/teamMember.model");
 const TeamStats = require("../../models/teams.stats.model");
 
+//need workspaceId from req.user
 exports.getDashboardData = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId; // Assuming workspace ID is available in req.user
@@ -46,7 +47,7 @@ exports.getDashboardData = async (req, res) => {
                 taskProgress
             }
         });
-                
+
     } catch (error) {
         console.error("Error fetching dashboard data:", error);
         res.status(500).json({ message: "Server error" });

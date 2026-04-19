@@ -3,9 +3,9 @@ const mongoose = require("mongoose");
 
 const suggestionSchema = new mongoose.Schema(
   {
-    meetingId: {
+    momId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Meeting",
+      ref: "MOM",
       required: true,
       index: true,
     },

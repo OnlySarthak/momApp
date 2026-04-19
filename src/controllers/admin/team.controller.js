@@ -5,6 +5,7 @@ const User = require("../../models/user.model");
 const Task = require("../../models/task.model");
 const Meeting = require("../../models/meeting.model");
 
+//need workspaceId from req.user
 exports.getTeamsList = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
@@ -28,7 +29,7 @@ exports.getTeamsList = async (req, res) => {
                 members: memberData.map(member => member.userId ? member.userId.name : "Unknown")
             };
         }));
-        
+
         res.status(200).json({ teams: teamDetails });
     } catch (error) {
         console.error("Error fetching teams:", error);
@@ -36,6 +37,8 @@ exports.getTeamsList = async (req, res) => {
     }
 };
 
+//need workspaceId and id from req.user
+//need teamName, leaderId, project, teamDescription, teamFunctionalRole from req.body
 exports.addTeam = async (req, res) => {
     try {
         const { teamName, leaderId, project, teamDescription, teamFunctionalRole } = req.body;
@@ -60,10 +63,10 @@ exports.addTeam = async (req, res) => {
         const newTeamMember = new TeamMember({
             teamId: savedTeam._id,
             userId: leaderId,
-            functionalRole: "Adviser", // Changed from "leader" to valid enum or null
+            functionalRole: "Leader", // Changed from "leader" to valid enum or null
         });
         await newTeamMember.save();
-        
+
         await User.findOneAndUpdate({ _id: leaderId }, { systemRole: "leader" });
         res.status(201).json({
             id: savedTeam._id,
@@ -80,6 +83,7 @@ exports.addTeam = async (req, res) => {
     }
 };
 
+//need teamId from req.params
 exports.getTeamDetails = async (req, res) => {
     try {
         const teamId = req.params.teamId;
@@ -122,6 +126,9 @@ exports.getTeamDetails = async (req, res) => {
     }
 };
 
+//need teamId from req.params
+//need userEmail, systemRole from req.body
+//need id from req.user
 exports.addTeamMember = async (req, res) => {
     try {
         const teamId = req.params.teamId;
@@ -139,7 +146,7 @@ exports.addTeamMember = async (req, res) => {
         }
 
         // Check if user exists first to get the ID
-        const userData = await User.findOne({ email: userEmail, workspaceId: req.user.workspaceId });
+        const userData = await User.findOne({ email: userEmail, workspaceId: req.user.workspaceId, systemRole: "member" });
         if (!userData) {
             return res.status(404).json({ message: "User not found in the workspace." });
         }
@@ -160,7 +167,7 @@ exports.addTeamMember = async (req, res) => {
             userId
         });
         await newTeamMember.save();
-        
+
         res.status(201).json({ message: "User added to team successfully." });
     }
     catch (error) {
@@ -169,6 +176,7 @@ exports.addTeamMember = async (req, res) => {
     }
 };
 
+//need teamId and userId from req.params
 exports.removeTeamMember = async (req, res) => {
     try {
         const teamId = req.params.teamId;
@@ -191,13 +199,27 @@ exports.removeTeamMember = async (req, res) => {
     catch (error) {
         console.error("Error removing user from team:", error);
         res.status(500).json({ message: error.message || "Server error while removing user from team." });
-    }   
+    }
 };
 
+//need teamId from req.params
+//need newLeaderEmail from req.body
+//need workspaceId from req.user
 exports.replaceTeamLeader = async (req, res) => {
     try {
         const teamId = req.params.teamId;
         const { newLeaderEmail } = req.body;
+
+        //check weather the newleader is registered as leader in systemrole
+        const userData = await User.findOne({ email: newLeaderEmail, workspaceId: req.user.workspaceId });
+        if (!userData) {
+            return res.status(404).json({ message: "User not found in the workspace." });
+        }
+        const userId = userData._id;
+        if (userData.systemRole !== "leader") {
+            return res.status(400).json({ message: "User is not registered as leader in systemrole." });
+        }
+
         const changedBy = req.user.id; // Assuming user ID is available in req.user
         if (!teamId) {
             return res.status(400).json({ message: "Team ID is required in params." });
@@ -206,31 +228,35 @@ exports.replaceTeamLeader = async (req, res) => {
             return res.status(400).json({ message: "New leader email is required in body." });
         }
 
-        const teamData = await team.findById(teamId);
+        const teamData = await Team.findById(teamId);
         if (!teamData) {
             return res.status(404).json({ message: "Team not found." });
         }
-        const newLeaderData = await user.findOne({ email: newLeaderEmail, workspaceId: teamData.workspaceId });
+        const newLeaderData = await User.findOne({ email: newLeaderEmail, workspaceId: teamData.workspaceId });
         if (!newLeaderData) {
             return res.status(404).json({ message: "New leader not found in the workspace." });
         }
 
         //update old leader membership and status
         const oldLeaderId = teamData.leaderId;
-        await teamMember.findOneAndDelete({ teamId, userId: oldLeaderId });
-        await user.findOneAndUpdate({ _id: oldLeaderId }, { status: false });
+        await TeamMember.findOneAndDelete({ teamId, userId: oldLeaderId });
+        await User.findOneAndUpdate({ _id: oldLeaderId }, { status: false });
+        //delete old leaders tasks
 
         //update team with new leader id
-        await user.findOneAndUpdate({ _id: newLeaderData._id }, { status: true });
-        await team.findOneAndUpdate({ _id: teamId }, { leaderId: newLeaderData._id });
-        await teamMember.create({ teamId, userId: newLeaderData._id, functionalRole: "leader", addedBy: changedBy });
+        userData.status = true;
+        await userData.save();
+        teamData.leaderId = newLeaderData._id;
+        await teamData.save();
+        await teamMember.create({ teamId, userId: newLeaderData._id, functionalRole: "Leader", addedBy: changedBy });
 
-        res.status(200).json({ message: "Team leader replaced successfully." ,
-                newLeader: {
-                    id: newLeaderData._id,
-                    name: newLeaderData.name,
-                    email: newLeaderData.email
-                }
+        res.status(200).json({
+            message: "Team leader replaced successfully.",
+            newLeader: {
+                id: newLeaderData._id,
+                name: newLeaderData.name,
+                email: newLeaderData.email
+            }
         });
     }
     catch (error) {

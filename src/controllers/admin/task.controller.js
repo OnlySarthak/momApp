@@ -1,6 +1,7 @@
 const task = require('../../models/task.model');
 const MOM = require('../../models/mom.model');
 
+//need workspaceId from req.user
 exports.getTask = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
@@ -17,6 +18,7 @@ exports.getTask = async (req, res) => {
     }
 };
 
+//need workspaceId from req.user
 exports.getInProgressTasks = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
@@ -28,12 +30,13 @@ exports.getInProgressTasks = async (req, res) => {
 
         res.status(200).json({ success: true, data: tasks });
     }
-    catch (error) { 
+    catch (error) {
         console.error('Error fetching tasks:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
 
+//need workspaceId from req.user
 exports.getCompletedTasks = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
@@ -45,12 +48,13 @@ exports.getCompletedTasks = async (req, res) => {
 
         res.status(200).json({ success: true, data: tasks });
     }
-    catch (error) { 
+    catch (error) {
         console.error('Error fetching tasks:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
 
+//need workspaceId from req.user
 exports.getToDoTasks = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
@@ -67,6 +71,8 @@ exports.getToDoTasks = async (req, res) => {
     }
 };
 
+//need workspaceId from req.user
+//need teamId from req.params
 exports.getTasksByTeam = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
@@ -85,6 +91,8 @@ exports.getTasksByTeam = async (req, res) => {
     }
 };
 
+//need workspaceId from req.user
+//need memberId from req.params
 exports.getTasksByMemberId = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;

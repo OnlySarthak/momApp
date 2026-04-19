@@ -1,6 +1,7 @@
 const Task = require("../../models/task.model");
 const TeamMember = require("../../models/teamMember.model");
 
+//need teamId and userId from req.user
 exports.getTasksList = async (req, res) => {
     try {
         const userId = req.user._id;
@@ -26,6 +27,8 @@ exports.getTasksList = async (req, res) => {
     }
 };
 
+//need teamId and userId from req.user
+//need status from req.query
 exports.getTasksbyFilter = async (req, res) => {
     try {
         const userId = req.user._id;
@@ -45,11 +48,13 @@ exports.getTasksbyFilter = async (req, res) => {
     }
 }
 
+//need taskTitle and assignedToId from req.body
+//need teamId from req.user
 exports.assignTask = async (req, res) => {
     try {
         const userId = req.user._id;
         const { taskTitle } = req.body;
-        
+
         const assignedTo = await TeamMember.findOne({ userId: userId }).
             populate('userId', 'name email');
 

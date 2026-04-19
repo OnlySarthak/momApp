@@ -1,35 +1,27 @@
-const router = require("express").Router();
-const { isAdmin } = require("../../middlewares/auth.middleware");
+const express = require("express");
+const router = express.Router();
+const { isAdmin, auth } = require("../../middlewares/auth.middleware");
 
-// Import controller functions
+// Import verified controller functions from team.controller.js
 const {
-  getWorkspaceMembersList,
-  getBenchMembersList,
   getTeamsList,
-  getTeamMembersList,
-
-  createTeam,
-  addUserToTeam,
-  changeTeamLeader,
-  removeUserFromTeam,
-  deleteTeam
+  addTeam,
+  getTeamDetails,
+  addTeamMember,
+  removeTeamMember,
+  replaceTeamLeader
 } = require("../../controllers/admin/team.controller");
 
-const { auth } = require("../../middlewares/auth.middleware");
+// Apply authentication and admin authorization
+router.use(auth);
+router.use(isAdmin);
 
-router.use(auth); // Apply auth middleware to all routes in this router
-router.use(isAdmin); // Apply isAdmin middleware to all routes in this router
-
-// Routes for team management
-router.get("/members/workspace", getWorkspaceMembersList);
-router.get("/members/bench", getBenchMembersList);
-router.get("/teams", getTeamsList);
-router.get("/:teamId/members", getTeamMembersList);
-
-router.post("/", createTeam);
-router.post("/:teamId/add", addUserToTeam);
-router.put("/:teamId/change-leader", changeTeamLeader);
-router.delete("/:teamId/:userId", removeUserFromTeam);
-router.delete("/:teamId", deleteTeam);
+// Team Management Routes (Admin Only)
+router.get("/", getTeamsList);
+router.post("/", addTeam);
+router.get("/:teamId", getTeamDetails);
+router.post("/:teamId/members", addTeamMember);
+router.delete("/:teamId/members/:userId", removeTeamMember);
+router.put("/:teamId/leader", replaceTeamLeader);
 
 module.exports = router;

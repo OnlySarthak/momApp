@@ -1,25 +1,26 @@
-const meeting = require("../../models/meeting.model");
-const momModel = require("../../models/mom.model");
-const teamMember = require("../../models/teamMember.model");
+const Meeting = require("../../models/meeting.model");
+const MOM = require("../../models/mom.model");
 const Transcript = require("../../models/transcript.model");
 const Task = require("../../models/task.model");
 const { startMeetingProcessingInBackground } = require("./meetingHelper");
 const { timeFrameToDate } = require("../../utils/timeFrameToData");
 
+//need teamId from req.user
+//need filter from req.query
 exports.getMeetingList = async (req, res) => {
     try {
         const teamId = req.user.teamId;
 
-       const filter = req.query.filter || "today";
-       const dateRange = timeFrameToDate(filter);
+        const filter = req.query.filter || "today";
+        const dateRange = timeFrameToDate(filter);
 
-        const meetings = await meeting.find({
+        const meetings = await Meeting.find({
             teamId,
-            createdAt: dateRange
+            meetingDate: dateRange
         });
 
         const meetingWithMembersNames = await Promise.all(meetings.map(async (m) => {
-            const momData = await momModel.findOne({ meetingId: m._id }).select('presentAttendees.name -_id');
+            const momData = await MOM.findOne({ meetingId: m._id }).select('presentAttendees.name -_id');
             return {
                 ...m.toObject(),
                 memberNames: momData ? momData.presentAttendees : []
@@ -33,11 +34,12 @@ exports.getMeetingList = async (req, res) => {
     }
 }
 
+//need title and project from req.body
 exports.initiateMeeting = async (req, res) => {
     try {
         const { title, project } = req.body;
 
-        const newMeeting = new meeting({
+        const newMeeting = new Meeting({
             workspaceId: req.user.workspaceId,
             teamId: req.user.teamId,
             leaderId: req.user.id,
@@ -51,7 +53,7 @@ exports.initiateMeeting = async (req, res) => {
         const savedMeeting = await newMeeting.save();
 
         // Start background processing for the meeting
-        startMeetingProcessingInBackground(savedMeeting._id, ""); 
+        startMeetingProcessingInBackground(savedMeeting._id, "");
 
         res.status(201).json({ message: "Meeting initiated successfully", meetingId: savedMeeting._id });
     } catch (error) {
@@ -60,6 +62,8 @@ exports.initiateMeeting = async (req, res) => {
     }
 };
 
+//need meetingId from req.params
+//need audioUrl from req.body
 exports.startMeetingProcessing = async (req, res) => {
     try {
         const { meetingId } = req.params;
@@ -74,11 +78,12 @@ exports.startMeetingProcessing = async (req, res) => {
     }
 };
 
+//need meetingId from req.params
 exports.deleteMeeting = async (req, res) => {
     try {
         const meetingId = req.params.id;
-        await meeting.findByIdAndDelete(meetingId);
-        await momModel.findOneAndDelete({ meetingId });
+        await Meeting.findByIdAndDelete(meetingId);
+        await MOM.findOneAndDelete({ meetingId });
         await Transcript.deleteMany({ meetingId });
         await Task.deleteMany({ meetingId });
 
@@ -89,14 +94,16 @@ exports.deleteMeeting = async (req, res) => {
     }
 };
 
+//need meetingId from req.params
 exports.getMeetingDetails = async (req, res) => {
     try {
         const meetingId = req.params.id;
-        const meetingDetails = await meeting.findById(meetingId);
+
+        const meetingDetails = await Meeting.findById(meetingId);
         if (!meetingDetails) {
             return res.status(404).json({ message: "Meeting not found" });
         }
-        const momDetails = await momModel.findOne({ meetingId });
+        const momDetails = await MOM.findOne({ meetingId });
         const transcripts = await Transcript.find({ meetingId });
 
         res.status(200).json({ meetingDetails, momDetails, transcripts });

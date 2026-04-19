@@ -2,6 +2,7 @@ const TeamMember = require("../../models/teamMember.model");
 const TeamStats = require("../../models/teams.stats.model");
 const Task = require("../../models/task.model");
 
+//need teamId from req.user
 exports.getTeams = async (req, res) => {
     try {
         const teamId = req.user.teamId;
@@ -23,6 +24,9 @@ exports.getTeams = async (req, res) => {
     }
 };
 
+//need memberId from req.params
+//need newRole from req.body
+//need teamId from req.user
 exports.editTeamMemberRole = async (req, res) => {
     try {
         const { memberId } = req.params;

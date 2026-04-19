@@ -1,3 +1,7 @@
+const workspace = require("../../models/workspace.model");
+const user = require("../../models/user.model");
+
+//need name, email, password, workspaceName from req.body
 exports.register = async (req, res) => {
     try {
         const { name, email, password, workspaceName } = req.body;
