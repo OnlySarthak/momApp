@@ -146,7 +146,7 @@ exports.addTeamMember = async (req, res) => {
         }
 
         // Check if user exists first to get the ID
-        const userData = await User.findOne({ email: userEmail, workspaceId: req.user.workspaceId, systemRole: "member" });
+        const userData = await User.findOne({ email: userEmail, workspaceId: req.user.workspaceId, systemRole: "member" }).select('-password');
         if (!userData) {
             return res.status(404).json({ message: "User not found in the workspace." });
         }
@@ -211,11 +211,11 @@ exports.replaceTeamLeader = async (req, res) => {
         const { newLeaderEmail } = req.body;
 
         //check weather the newleader is registered as leader in systemrole
-        const userData = await User.findOne({ email: newLeaderEmail, workspaceId: req.user.workspaceId });
+        const userData = await User.findOne({ email: newLeaderEmail, workspaceId: req.user.workspaceId }).select('-password');
         if (!userData) {
             return res.status(404).json({ message: "User not found in the workspace." });
         }
-        const userId = userData._id;
+        const userId = userData.id;
         if (userData.systemRole !== "leader") {
             return res.status(400).json({ message: "User is not registered as leader in systemrole." });
         }
@@ -232,7 +232,7 @@ exports.replaceTeamLeader = async (req, res) => {
         if (!teamData) {
             return res.status(404).json({ message: "Team not found." });
         }
-        const newLeaderData = await User.findOne({ email: newLeaderEmail, workspaceId: teamData.workspaceId });
+        const newLeaderData = await User.findOne({ email: newLeaderEmail, workspaceId: teamData.workspaceId }).select('-password');
         if (!newLeaderData) {
             return res.status(404).json({ message: "New leader not found in the workspace." });
         }

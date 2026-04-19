@@ -3,6 +3,8 @@ const Task = require("../../models/task.model");
 const Suggestion = require("../../models/suggestion.model");
 const { timeFrameToDate } = require("../../utils/timeFrameToData");
 
+//need teamId from req.user
+//need filter from req.query
 exports.getMOMList = async (req, res) => {
   try {
     const teamId = req.user.teamId;
@@ -32,6 +34,7 @@ exports.getMOMList = async (req, res) => {
   }
 };
 
+//need id from req.params(momId )
 exports.getMomDetails = async (req, res) => {
   try {
     const { id } = req.params;
@@ -56,6 +59,7 @@ exports.getMomDetails = async (req, res) => {
   }
 };
 
+//need id from req.params(suggestionId)
 exports.approveSuggestion = async (req, res) => {
   try {
     const { id } = req.params;
@@ -76,6 +80,29 @@ exports.approveSuggestion = async (req, res) => {
   }
 };
 
+//need id from req.params(suggestionId)
+exports.rejectSuggestion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const suggestionDetails = await Suggestion.findOneAndUpdate(
+      { _id: id },
+      { $set: { status: 'rejected' } },
+      { new: true }
+    ).lean();
+
+    if (!suggestionDetails) {
+      return res.status(404).json({ success: false, message: 'Suggestion not found' });
+    }
+
+    res.status(200).json({ success: true, data: suggestionDetails });
+  } catch (error) {
+    console.error('Error rejecting suggestion:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+//need id from req.params(momId)
+//need summery,decisions,insights,presentAttendees from req.body
 exports.editMOM = async (req, res) => {
   try {
     const { id } = req.params;

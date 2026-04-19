@@ -20,9 +20,18 @@ const teamSchema = new mongoose.Schema(
     },
     teamFunctionalRole: {
       type: String,
-      default: "",
+      enum: [
+        "Engineering",
+        "Marketing & Content",
+        "Design",
+        "Product",
+        "Operations",
+        "Sales / Business Development",
+        "Research & Strategy"
+      ],
+      default: "Engineering",
     },
-    project : {
+    project: {
       type: String,
       default: ""
     },

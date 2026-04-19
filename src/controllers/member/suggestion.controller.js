@@ -4,7 +4,7 @@ const MOM = require("../../models/mom.model");
 //need teamId from req.user
 exports.getSuggestionsByMember = async (req, res) => {
     try {
-        const userId = req.user.id || req.user._id;
+        const userId = req.user.id;
         const suggestions = await Suggestion.find({ suggestedBy: userId })
             .populate("momId", "title")
             .sort({ createdAt: -1 });
@@ -21,7 +21,7 @@ exports.getSuggestionsByMember = async (req, res) => {
 exports.createSuggestion = async (req, res) => {
     try {
         const { momId, content } = req.body;
-        const userId = req.user.id || req.user._id;
+        const userId = req.user.id;
 
         const momDetails = await MOM.findById(momId);
         if (!momDetails) {

@@ -8,6 +8,7 @@ const meetingController = require("../../controllers/admin/meeting.controller");
 const momController = require("../../controllers/admin/mom.controller");
 const taskController = require("../../controllers/admin/task.controller");
 const usersController = require("../../controllers/admin/users.controller");
+const lookoutController = require("../../controllers/admin/lookout.controller");
 
 // Apply middleware
 router.use(auth);
@@ -38,5 +39,10 @@ router.get("/users/active", usersController.getActiveMembersList);
 router.get("/users/deactivated", usersController.getDeactivatedMembersList);
 router.get("/users/role/:role", usersController.getMembersByRole);
 router.post("/users", usersController.addUser);
+
+//lookout routes
+router.get("/lookout/teams", lookoutController.lookOutTeams);
+router.get("/lookout/team-members", lookoutController.lookOutTeamMembers);
+router.get("/lookout/leaders", lookoutController.lookoutLeaders);
 
 module.exports = router;

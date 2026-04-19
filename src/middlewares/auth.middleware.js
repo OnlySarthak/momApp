@@ -35,7 +35,7 @@ exports.auth = async (req, res, next) => {
 exports.isAdmin = async (req, res, next) => {
     try {
         const userId = req.user.id; // Assuming user ID is available in req.user from auth middleware
-        const currentUser = await user.findById(userId);
+        const currentUser = await user.findOne({ _id: userId }).select('-password');
 
         if (!currentUser) {
             return res.status(404).json({ message: "User not found" });
@@ -61,7 +61,7 @@ exports.isTeamLeader = async (req, res, next) => {
         }
 
         next();
-    } catch (error) {   
+    } catch (error) {
         console.error("Error checking team leader role:", error);
         res.status(500).json({ message: "Server error" });
     }
@@ -85,7 +85,7 @@ exports.isTeamMember = async (req, res, next) => {
             return res.status(404).json({ message: "User is not a member of the team" });
         }
         next();
-    } catch (error) {   
+    } catch (error) {
         console.error("Error checking team member role:", error);
         res.status(500).json({ message: "Server error" });
     }

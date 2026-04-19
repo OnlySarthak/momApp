@@ -9,7 +9,7 @@ exports.getTeams = async (req, res) => {
 
         const teamMembers = await TeamMember.find({ teamId }).populate('userId', 'name email');
 
-        const teamStats = await TeamStats.findOne({ teamId }).select('TeamProductivityScore');
+        const teamStats = await TeamStats.findOne({ teamId });
 
         const teamTasks = await Task.find({ teamId }).sort({ createdAt: -1 }).limit(5).select('title state responsibleId');
 

@@ -12,7 +12,7 @@ exports.getWorkspaceMembersList = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required in cookies." });
         }
 
-        const members = await User.find({ workspaceId });
+        const members = await User.find({ workspaceId }).select('-password');
         //get teamMember details and team details for each member 
 
         const memberDetails = await Promise.all(members.map(async (member) => {
@@ -46,7 +46,7 @@ exports.getDeactivatedMembersList = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required." });
         }
 
-        const members = await User.find({ workspaceId, status: false }).select("name email systemRole");
+        const members = await User.find({ workspaceId, status: false }).select("name email systemRole").select('-password');
 
         res.status(200).json({ members });
     } catch (error) {
@@ -63,7 +63,7 @@ exports.getActiveMembersList = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required in cookies." });
         }
 
-        const members = await User.find({ workspaceId, status: true }).select("name email systemRole");
+        const members = await User.find({ workspaceId, status: true }).select("name email systemRole").select('-password');
 
         const memberDetails = await Promise.all(members.map(async (member) => {
 
@@ -98,7 +98,7 @@ exports.getMembersByRole = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required in cookies." });
         }
 
-        const members = await User.find({ workspaceId, systemRole: role }).select("name email systemRole");
+        const members = await User.find({ workspaceId, systemRole: role }).select('-password').select('-password');
 
         const memberDetails = await Promise.all(members.map(async (member) => {
             if (member.status === false) {
@@ -139,7 +139,7 @@ exports.addUser = async (req, res) => {
             return res.status(400).json({ message: "Invalid system role. Role must be 'admin', 'leader', or 'member'." });
         }
 
-        const existingUser = await User.findOne({ email, workspaceId });
+        const existingUser = await User.findOne({ email, workspaceId }).select('-password').select('-password');
         if (existingUser) {
             return res.status(400).json({ message: "A user with this email already exists in the workspace." });
         }

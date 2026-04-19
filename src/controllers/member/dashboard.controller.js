@@ -11,7 +11,7 @@ exports.getDashboardData = async (req, res) => {
 
         const teamDetails = await Team.findById(teamId);
 
-        const userId = req.user.id || req.user._id;
+        const userId = req.user.id;
 
         const totalTasks = await Task.countDocuments({ responsibleId: userId, teamId });
         const today = new Date();

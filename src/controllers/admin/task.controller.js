@@ -7,7 +7,7 @@ exports.getTask = async (req, res) => {
         const workspaceId = req.user.workspaceId;
 
         const tasks = await task.find({ workspaceId })
-            .populate('teamId', 'teamName project')
+            .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
 
@@ -24,7 +24,7 @@ exports.getInProgressTasks = async (req, res) => {
         const workspaceId = req.user.workspaceId;
 
         const tasks = await task.find({ workspaceId, state: 'in_progress' })
-            .populate('teamId', 'teamName project')
+            .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
 
@@ -42,7 +42,7 @@ exports.getCompletedTasks = async (req, res) => {
         const workspaceId = req.user.workspaceId;
 
         const tasks = await task.find({ workspaceId, state: 'completed' })
-            .populate('teamId', 'teamName project')
+            .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
 
@@ -60,7 +60,7 @@ exports.getToDoTasks = async (req, res) => {
         const workspaceId = req.user.workspaceId;
 
         const tasks = await task.find({ workspaceId, state: 'pending' })
-            .populate('teamId', 'teamName project')
+            .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
         res.status(200).json({ success: true, data: tasks });
@@ -79,7 +79,7 @@ exports.getTasksByTeam = async (req, res) => {
         const { teamId } = req.params;
 
         const tasks = await task.find({ workspaceId, teamId })
-            .populate('teamId', 'teamName project')
+            .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
 
@@ -99,7 +99,7 @@ exports.getTasksByMemberId = async (req, res) => {
         const { memberId } = req.params;
 
         const tasks = await task.find({ workspaceId, responsibleId: memberId })
-            .populate('teamId', 'teamName project')
+            .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
 

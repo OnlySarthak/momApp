@@ -6,9 +6,9 @@ const Team = require("../../models/team.model");
 //need userId from req.user
 exports.getProfile = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user.d;
 
-        const userProfile = await User.findById(userId).select('-password').lean();
+        const userProfile = await User.findOne({ _id: userId }).select('-password').lean();
 
         if (!userProfile) {
             return res.status(404).json({ message: "User not found" });
@@ -41,9 +41,7 @@ exports.changePassword = async (req, res) => {
     try {
         const userId = req.user.id;
         const { currentPassword, newPassword } = req.body;
-        const user = await User.find
-            .findById(userId)
-            .select('+password');
+        const user = await User.findOne({ _id: userId }).select('+password');
 
         if (!user) {
             return res.status(404).json({ message: "User not found" });

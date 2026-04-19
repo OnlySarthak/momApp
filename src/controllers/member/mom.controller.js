@@ -74,7 +74,7 @@ exports.sendSuggestion = async (req, res) => {
         const newSuggestion = new Suggestion({
             meetingId: momDetails.meetingId, // Standardized to meetingId as per schema
             suggestionText: content,
-            suggestedBy: req.user.id || req.user._id,
+            suggestedBy: req.user.id,
             status: 'pending'
         });
         await newSuggestion.save();

@@ -4,7 +4,7 @@ const TeamMember = require("../../models/teamMember.model");
 //need teamId and userId from req.user
 exports.getTasksList = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user.id;
         const teamId = req.user.teamId;
 
         const totalTasks = await Task.countDocuments({ teamId, responsibleId: userId });
@@ -31,7 +31,7 @@ exports.getTasksList = async (req, res) => {
 //need status from req.query
 exports.getTasksbyFilter = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user.id;
         const teamId = req.user.teamId;
         const statusFilter = req.query.status;
 
@@ -52,7 +52,7 @@ exports.getTasksbyFilter = async (req, res) => {
 //need teamId from req.user
 exports.assignTask = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user.id;
         const { taskTitle } = req.body;
 
         const assignedTo = await TeamMember.findOne({ userId: userId }).
@@ -78,5 +78,42 @@ exports.assignTask = async (req, res) => {
     } catch (error) {
         console.error("Error creating task:", error);
         res.status(500).json({ message: "Failed to create task" });
+    }
+};
+
+//need taskId from req.params
+//need title from req.body
+exports.renameTask = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title } = req.body;
+
+        const updatedTask = await Task.findByIdAndUpdate(id, { title }, { new: true }).lean();
+
+        if (!updatedTask) {
+            return res.status(404).json({ success: false, message: 'Task not found' });
+        }
+
+        res.status(200).json({ success: true, data: updatedTask });
+    } catch (error) {
+        console.error('Error renaming task:', error);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+//need taskId from req.params
+exports.deleteTask = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const deletedTask = await Task.findByIdAndDelete(id).lean();
+
+        if (!deletedTask) {
+            return res.status(404).json({ success: false, message: 'Task not found' });
+        }
+
+        res.status(200).json({ success: true, data: deletedTask });
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
