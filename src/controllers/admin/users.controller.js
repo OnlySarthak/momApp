@@ -175,3 +175,61 @@ exports.addUser = async (req, res) => {
     }
 };
 
+//Remove a user completely (only if non-admin and deactivated)
+exports.removeUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const workspaceId = req.user.workspaceId;
+        const user = await User.findOne({ _id: id, workspaceId });
+        if (!user) return res.status(404).json({ message: "User not found" });
+        if (user.systemRole === "admin") return res.status(403).json({ message: "Cannot remove admin" });
+        if (user.status !== false) return res.status(400).json({ message: "Can only remove deactivated users" });
+        
+        // Also remove team mapping
+        await TeamMember.deleteMany({ userId: id });
+        await User.findByIdAndDelete(id);
+        res.json({ message: "User removed successfully" });
+    } catch (err) {
+        console.error("Error removing user:", err);
+        res.status(500).json({ message: err.message || "Server Error" });
+    }
+};
+
+exports.renameUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name } = req.body;
+        const workspaceId = req.user.workspaceId;
+        const user = await User.findOne({ _id: id, workspaceId });
+        if (!user) return res.status(404).json({ message: "User not found" });
+        if (user.systemRole === "admin") return res.status(403).json({ message: "Cannot modify admin" });
+        
+        user.name = name;
+        await user.save();
+        res.json({ message: "User renamed successfully" });
+    } catch (err) {
+        console.error("Error renaming user:", err);
+        res.status(500).json({ message: err.message || "Server Error" });
+    }
+};
+
+exports.resetPassword = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { password } = req.body;
+        
+        if (!password || password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters long" });
+        
+        const workspaceId = req.user.workspaceId;
+        const user = await User.findOne({ _id: id, workspaceId });
+        if (!user) return res.status(404).json({ message: "User not found" });
+        if (user.systemRole === "admin") return res.status(403).json({ message: "Cannot modify admin" });
+        
+        user.passwordHash = await bcrypt.hash(password, 10);
+        await user.save();
+        res.json({ message: "Password reset successfully" });
+    } catch (err) {
+        console.error("Error resetting password:", err);
+        res.status(500).json({ message: err.message || "Server Error" });
+    }
+};

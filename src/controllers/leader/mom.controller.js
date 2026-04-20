@@ -52,8 +52,9 @@ exports.getMomDetails = async (req, res) => {
     //pending tasks
     const pendingTasks = await Task.find({ momId: id, state: 'pending' }).lean();
     //suggestions
-    const suggestions = await Suggestion.find({ momId: id }).lean();
-
+    const suggestions = await Suggestion.find({ momId: id })
+      .populate('suggestedBy', 'name')
+      .lean();
 
     res.status(200).json({ success: true, data: { ...momDetails, pendingTasks, suggestions } });
   } catch (error) {
@@ -116,21 +117,8 @@ exports.editMOM = async (req, res) => {
       presentAttendees,
     } = req.body;
 
-    // Fixed: forEach cannot use await — converted to for...of; added await to findById/findOne
-    for (const attendee of presentAttendees) {
-      const user = await User.findById(attendee._id);
-      if (!user) {
-        return res.status(404).json({ success: false, message: 'User not found' });
-      }
-      const teamMember = await TeamMember.findOne({ userId: attendee._id });
-      if (!teamMember) {
-        return res.status(404).json({ success: false, message: 'Team member not found' });
-      }
-
-      attendee.userId = attendee._id;
-      attendee.name = user.name;
-      attendee.functionalRole = teamMember.functionalRole;
-    }
+    // We don't need to re-fetch users. The frontend sends back the filtered array of objects 
+    // which already contains the required properties (userId, name, functionalRole) set during creation.
 
     const updatedMOM = await MOM.findByIdAndUpdate(id, {
       summary: summery,

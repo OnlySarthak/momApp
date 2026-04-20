@@ -5,13 +5,19 @@ const TeamMember = require("../../models/teamMember.model");
 exports.getTasksList = async (req, res) => {
     try {
         const teamId = req.user.teamId;
+        const memberId = req.query.memberId;
 
-        const totalTasks = await Task.countDocuments({ teamId });
-        const completedTasks = await Task.countDocuments({ teamId, state: "completed" });
-        const pendingTasks = await Task.countDocuments({ teamId, state: "pending" });
-        const toDoTasks = await Task.countDocuments({ teamId, state: "pending" });
+        const filter = { teamId };
+        if (memberId) {
+            filter.responsibleId = memberId;
+        }
 
-        const tasks = await Task.find({ teamId }).sort({ createdAt: -1 });
+        const totalTasks = await Task.countDocuments(filter);
+        const completedTasks = await Task.countDocuments({ ...filter, state: "completed" });
+        const pendingTasks = await Task.countDocuments({ ...filter, state: "pending" });
+        const toDoTasks = await Task.countDocuments({ ...filter, state: "pending" });
+
+        const tasks = await Task.find(filter).sort({ createdAt: -1 });
 
         res.json({
             totalTasks,

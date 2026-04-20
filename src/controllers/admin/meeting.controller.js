@@ -10,7 +10,7 @@ exports.getMeetingList = async (req, res) => {
         const timeframe = req.query.timeframe; // Get the timeframe from query parameters
 
         const dateRange = timeFrameToDate(timeframe);
-        const recentMeetings = await meeting.find({ workspaceId, meetingDate: { $gte: dateRange } })
+        const recentMeetings = await meeting.find({ workspaceId, meetingDate: dateRange })
             .sort({ meetingDate: -1 }); // Sort by meeting date in descending order
 
         const meetingDataWithAttendees = await Promise.all(recentMeetings.map(async (meeting) => {

@@ -14,6 +14,7 @@ exports.getMomList = async (req, res) => {
 
     // Find all MOMs for the given workspaceId, count the number of tasks associated with each MOM and add to that mom document
     const moms = await MOM.find({ workspaceId, createdAt: dateRange })
+      .sort({ createdAt: -1 })
       .populate('meetingId', 'title') // Populate meeting title
       .lean(); // Use lean() to get plain JavaScript objects
 

@@ -27,7 +27,6 @@ const taskSchema = new mongoose.Schema(
     momId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Mom",
-      required: true,
       index: true,
     },
     lastUpdated: {

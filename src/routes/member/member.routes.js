@@ -17,6 +17,7 @@ router.get("/dashboard", dashboardController.getDashboardData);
 
 // Meetings
 router.get("/meetings", meetingAndMomController.getMeetingList);
+router.get("/meetings/:id", meetingAndMomController.getMeetingDetails);
 
 // MOMs
 router.get("/moms", momController.getMOMList);

@@ -8,8 +8,7 @@ const MOM = require("../../models/mom.model");
 exports.getDashboardData = async (req, res) => {
     try {
         const teamId = req.user.teamId;
-
-        const teamDetails = await Team.findById(teamId);
+        const teamDetails = await Team.findById(teamId).populate('leaderId', 'name email');
 
         const userId = req.user.id;
 

@@ -99,7 +99,7 @@ exports.getTeamDetails = async (req, res) => {
         }
 
         const teamMembers = await TeamMember.find({ teamId }).populate("userId", "name email systemRole");
-        const teamStatsData = await TeamStats.find({ teamId });
+        const teamStatsData = await TeamStats.findOne({ teamId });
         const teamTasksData = await Task.find({ teamId }).limit(5).sort({ updatedAt: -1 });
         const recentMeetings = await Meeting.find({ teamId }).sort({ meetingDate: -1 }).limit(5);
 

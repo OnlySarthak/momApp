@@ -18,10 +18,10 @@ router.use(isTeamLeader);
 
 // Routes for meetings
 router.get("/", getMeetingList);
-router.get("/:id", getMeetingDetails);
+router.get("/workspaceId-teamId", passWorkspaceIdAndTeamId);
 router.post("/initiate", initiateMeeting);
 router.post("/:meetingId/processing", startMeetingProcessing);
 router.delete("/:id", deleteMeeting);
-router.get("/workspaceId-teamId", passWorkspaceIdAndTeamId);
+router.get("/:id", getMeetingDetails);
 
 module.exports = router;

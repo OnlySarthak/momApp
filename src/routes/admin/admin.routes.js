@@ -39,6 +39,9 @@ router.get("/users/active", usersController.getActiveMembersList);
 router.get("/users/deactivated", usersController.getDeactivatedMembersList);
 router.get("/users/role/:role", usersController.getMembersByRole);
 router.post("/users", usersController.addUser);
+router.delete("/users/:id", usersController.removeUser);
+router.put("/users/:id/rename", usersController.renameUser);
+router.put("/users/:id/password", usersController.resetPassword);
 
 //lookout routes
 router.get("/lookout/teams", lookoutController.lookOutTeams);

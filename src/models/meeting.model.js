@@ -31,13 +31,17 @@ const meetingSchema = new mongoose.Schema(
       type: String,
       required: true
     },
-    audioFileUrl:{
-        type: String
-    } ,
+    audioFileUrl: {
+      type: String
+    },
     meetingDate: {
       type: Date,
       required: true,
       index: true,
+    },
+    meetingDuration: {
+      type: Number,
+      default: 0
     },
     processingStage: {
       type: String,

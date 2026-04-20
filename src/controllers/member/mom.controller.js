@@ -50,8 +50,9 @@ exports.getMomDetails = async (req, res) => {
         //pending tasks
         const pendingTasks = await Task.find({ momId: id, state: 'pending' }).lean();
         //suggestions
-        const suggestions = await Suggestion.find({ momId: id }).lean();
-
+        const suggestions = await Suggestion.find({ momId: id })
+            .populate('suggestedBy', 'name')
+            .lean();
 
         res.status(200).json({ success: true, data: { ...momDetails, pendingTasks, suggestions } });
     } catch (error) {
@@ -73,7 +74,7 @@ exports.sendSuggestion = async (req, res) => {
         }
 
         const newSuggestion = new Suggestion({
-            meetingId: momDetails.meetingId, // Standardized to meetingId as per schema
+            momId: id, // Suggestion model uses momId
             suggestionText: content,
             suggestedBy: req.user.id,
             status: 'pending'

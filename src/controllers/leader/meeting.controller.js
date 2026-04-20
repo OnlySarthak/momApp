@@ -27,13 +27,13 @@ exports.getMeetingList = async (req, res) => {
         const meetings = await Meeting.find({
             teamId,
             meetingDate: dateRange
-        });
+        }).sort({ meetingDate: -1 });
 
         const meetingWithMembersNames = await Promise.all(meetings.map(async (m) => {
             const momData = await MOM.findOne({ meetingId: m._id }).select('presentAttendees.name -_id');
             return {
                 ...m.toObject(),
-                memberNames: momData ? momData.presentAttendees : []
+                memberNames: momData && momData.presentAttendees ? momData.presentAttendees.map(a => a.name) : []
             };
         }));
 
@@ -44,27 +44,29 @@ exports.getMeetingList = async (req, res) => {
     }
 }
 
-//need title and project from req.body
+//need title, projectName and description from req.body
 exports.initiateMeeting = async (req, res) => {
     try {
-        const { title, project } = req.body;
+        const { title, projectName, description } = req.body;
+
+        if (!projectName || !description || !title) {
+            return res.status(400).json({ message: "Title, Project Name and Description are required" });
+        }
 
         const newMeeting = new Meeting({
             workspaceId: req.user.workspaceId,
             teamId: req.user.teamId,
             leaderId: req.user.id,
             leaderName: req.user.name,
-            title,
-            projectName: project || "",
+            title: title,
+            projectName: projectName,
             meetingDate: new Date(),
             processingStage: "initialized"
         });
 
         const savedMeeting = await newMeeting.save();
 
-        // Start background processing for the meeting
-        startMeetingProcessingInBackground(savedMeeting._id, "");
-
+        // Do NOT start processing here — wait for audio upload
         res.status(201).json({ message: "Meeting initiated successfully", meetingId: savedMeeting._id });
     } catch (error) {
         console.error("Error initiating meeting:", error);
@@ -73,13 +75,25 @@ exports.initiateMeeting = async (req, res) => {
 };
 
 //need meetingId from req.params
-//need audioUrl from req.body
+//need audioUrl and meetingDuration from req.body
 exports.startMeetingProcessing = async (req, res) => {
     try {
         const { meetingId } = req.params;
-        const { audioUrl } = req.body;
+        const { audioUrl, meetingDuration } = req.body;
 
-        await startMeetingProcessingInBackground(meetingId, audioUrl);
+        if (!audioUrl) {
+            return res.status(400).json({ message: "Audio URL is required" });
+        }
+
+        // Store the audio URL and duration on the meeting document
+        await Meeting.findByIdAndUpdate(meetingId, {
+            audioFileUrl: audioUrl,
+            meetingDuration: meetingDuration || 0,
+            processingStage: "uploaded"
+        });
+
+        // Now trigger AI processing
+        startMeetingProcessingInBackground(meetingId, audioUrl);
 
         res.status(200).json({ message: "Meeting processing started successfully" });
     } catch (error) {
@@ -111,14 +125,21 @@ exports.getMeetingDetails = async (req, res) => {
 
         const meetingDetails = await Meeting.findById(meetingId);
         if (!meetingDetails) {
-            return res.status(404).json({ message: "Meeting not found" });
+            return res.status(404).json({ success: false, message: "Meeting not found" });
         }
         const momDetails = await MOM.findOne({ meetingId });
         const transcripts = await Transcript.find({ meetingId });
 
-        res.status(200).json({ meetingDetails, momDetails, transcripts });
+        res.status(200).json({
+            success: true,
+            data: {
+                ...meetingDetails.toObject(),
+                mom: momDetails,
+                transcripts: transcripts
+            }
+        });
     } catch (error) {
         console.error("Error fetching meeting details:", error);
-        res.status(500).json({ message: "Failed to fetch meeting details" });
+        res.status(500).json({ success: false, message: "Failed to fetch meeting details" });
     }
 };
