@@ -22,6 +22,8 @@ exports.getTeamsList = async (req, res) => {
             return {
                 id: team._id,
                 teamName: team.teamName,
+                teamDescription: team.teamDescription,
+                teamFunctionalRole: team.teamFunctionalRole,
                 leaderId: team.leaderId,
                 createdBy: team.createdBy,
                 TeamProductivityScore: teamTaskData ? teamTaskData.TeamProductivityScore : 0,
@@ -67,7 +69,8 @@ exports.addTeam = async (req, res) => {
         });
         await newTeamMember.save();
 
-        await User.findOneAndUpdate({ _id: leaderId }, { systemRole: "leader" });
+        await User.findOneAndUpdate({ _id: leaderId }, { systemRole: "leader", status: true });
+
         res.status(201).json({
             id: savedTeam._id,
             teamName: savedTeam.teamName,
@@ -114,8 +117,10 @@ exports.getTeamDetails = async (req, res) => {
                 name: member.userId ? member.userId.name : "Unknown",
                 email: member.userId ? member.userId.email : null,
                 systemRole: member.userId ? member.userId.systemRole : null,
-                functionalRole: member.functionalRole
+                functionalRole: member.functionalRole,
+                isLeader: member.userId && teamData.leaderId && member.userId._id.toString() === teamData.leaderId.toString()
             })),
+
             teamStats: teamStatsData,
             recentTasks: teamTasksData,
             recentMeetings: recentMeetings
@@ -127,135 +132,155 @@ exports.getTeamDetails = async (req, res) => {
 };
 
 //need teamId from req.params
-//need userEmail, systemRole from req.body
-//need id from req.user
+//need userId or userEmail from req.body
 exports.addTeamMember = async (req, res) => {
     try {
         const teamId = req.params.teamId;
-        const { userEmail, systemRole } = req.body;
-        const addedBy = req.user.id;
+        const { userId, userEmail } = req.body;
+
         if (!teamId) {
             return res.status(400).json({ message: "Team ID is required." });
         }
-        if (!userEmail) {
-            return res.status(400).json({ message: "User email is required." });
+
+        let user;
+        if (userId) {
+            user = await User.findById(userId);
+        } else if (userEmail) {
+            user = await User.findOne({ email: userEmail, workspaceId: req.user.workspaceId });
+        } else {
+            return res.status(400).json({ message: "User ID or Email is required." });
         }
 
-        if (systemRole !== "member") {
-            return res.status(400).json({ message: "Invalid system role." });
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
         }
-
-        // Check if user exists first to get the ID
-        const userData = await User.findOne({ email: userEmail, workspaceId: req.user.workspaceId, systemRole: "member" }).select('-password');
-        if (!userData) {
-            return res.status(404).json({ message: "User not found in the workspace." });
-        }
-        const userId = userData._id;
 
         // Check if the user is already a member of the team
-        const existingTeamMember = await TeamMember.findOne({ teamId, userId });
+        const existingTeamMember = await TeamMember.findOne({ teamId, userId: user._id });
         if (existingTeamMember) {
-            return res.status(400).json({ message: "User is already a member of the team." });
+            return res.status(400).json({ message: "User is already a member of this team." });
         }
 
-        //update user status
-        await User.findByIdAndUpdate(userId, { status: true });
+        // Update user status to true (active)
+        await User.findByIdAndUpdate(user._id, { status: true });
 
-        //create team member entry
+        // Create team member entry - functionalRole defaults to "Member" in schema
         const newTeamMember = new TeamMember({
             teamId,
-            userId
+            userId: user._id
         });
         await newTeamMember.save();
 
         res.status(201).json({ message: "User added to team successfully." });
     }
     catch (error) {
-        console.error("Error adding user to team:", error);
-        res.status(500).json({ message: error.message || "Server error while adding user to team." });
+        console.error("Error adding member:", error);
+        res.status(500).json({ message: error.message || "Server error while adding member." });
     }
 };
+
+
 
 //need teamId and userId from req.params
 exports.removeTeamMember = async (req, res) => {
     try {
         const teamId = req.params.teamId;
         const userId = req.params.userId;
-        if (!teamId || !userId) {
-            return res.status(400).json({ message: "Team ID and User ID are required." });
+        
+        if (!teamId || !userId || userId === "undefined") {
+            return res.status(400).json({ message: "Valid Team ID and User ID are required." });
         }
 
-        //remove team member entry
+        // Remove team member entry
         const removedMember = await TeamMember.findOneAndDelete({ teamId, userId });
         if (!removedMember) {
             return res.status(404).json({ message: "Team member not found." });
         }
 
-        //update user  status to false
-        await User.findOneAndUpdate({ _id: userId }, { status: false });
+        // Check if the user is a member of any OTHER teams
+        const otherTeams = await TeamMember.findOne({ userId, teamId: { $ne: teamId } });
+        if (!otherTeams) {
+            // If they are not in any other teams, set status to false (inactive)
+            await User.findByIdAndUpdate(userId, { status: false });
+        }
 
         res.status(200).json({ message: "User removed from team successfully." });
     }
     catch (error) {
-        console.error("Error removing user from team:", error);
-        res.status(500).json({ message: error.message || "Server error while removing user from team." });
+        console.error("Error removing member:", error);
+        res.status(500).json({ message: error.message || "Server error while removing member." });
     }
 };
 
+
+
 //need teamId from req.params
-//need newLeaderEmail from req.body
-//need workspaceId from req.user
+//need newLeaderEmail or newLeaderId from req.body
 exports.replaceTeamLeader = async (req, res) => {
     try {
         const teamId = req.params.teamId;
-        const { newLeaderEmail } = req.body;
+        const { newLeaderEmail, newLeaderId } = req.body;
 
-        //check weather the newleader is registered as leader in systemrole
-        const userData = await User.findOne({ email: newLeaderEmail, workspaceId: req.user.workspaceId }).select('-password');
-        if (!userData) {
-            return res.status(404).json({ message: "User not found in the workspace." });
-        }
-        const userId = userData.id;
-        if (userData.systemRole !== "leader") {
-            return res.status(400).json({ message: "User is not registered as leader in systemrole." });
-        }
-
-        const changedBy = req.user.id; // Assuming user ID is available in req.user
         if (!teamId) {
-            return res.status(400).json({ message: "Team ID is required in params." });
-        }
-        if (!newLeaderEmail) {
-            return res.status(400).json({ message: "New leader email is required in body." });
+            return res.status(400).json({ message: "Team ID is required." });
         }
 
         const teamData = await Team.findById(teamId);
         if (!teamData) {
             return res.status(404).json({ message: "Team not found." });
         }
-        const newLeaderData = await User.findOne({ email: newLeaderEmail, workspaceId: teamData.workspaceId }).select('-password');
-        if (!newLeaderData) {
-            return res.status(404).json({ message: "New leader not found in the workspace." });
+
+        let newLeader;
+        if (newLeaderId) {
+            newLeader = await User.findById(newLeaderId);
+        } else if (newLeaderEmail) {
+            newLeader = await User.findOne({ email: newLeaderEmail, workspaceId: req.user.workspaceId });
+        } else {
+            return res.status(400).json({ message: "New leader ID or Email is required." });
         }
 
-        //update old leader membership and status
-        const oldLeaderId = teamData.leaderId;
-        await TeamMember.findOneAndDelete({ teamId, userId: oldLeaderId });
-        await User.findOneAndUpdate({ _id: oldLeaderId }, { status: false });
-        //delete old leaders tasks
+        if (!newLeader) {
+            return res.status(404).json({ message: "New leader not found." });
+        }
 
-        //update team with new leader id
-        userData.status = true;
-        await userData.save();
-        teamData.leaderId = newLeaderData._id;
+        if (newLeader.systemRole !== "leader") {
+            return res.status(400).json({ message: "User is not registered as a leader." });
+        }
+
+        // 1. Handle Old Leader
+        const oldLeaderId = teamData.leaderId;
+        if (oldLeaderId) {
+            await TeamMember.findOneAndDelete({ teamId, userId: oldLeaderId });
+
+            // Only deactivate if they aren't in any OTHER teams
+            const otherTeams = await TeamMember.findOne({ userId: oldLeaderId, teamId: { $ne: teamId } });
+            if (!otherTeams) {
+                await User.findByIdAndUpdate(oldLeaderId, { status: false });
+            }
+        }
+
+        // 2. Handle New Leader
+        newLeader.status = true;
+        await newLeader.save();
+
+        // 3. Update Team Object
+        teamData.leaderId = newLeader._id;
         await teamData.save();
-        await teamMember.create({ teamId, userId: newLeaderData._id, functionalRole: "Leader", addedBy: changedBy });
+
+        // 4. Create/Update TeamMember entry for new leader
+        // Ensure they aren't already listed as a member in this team (to avoid duplicate index error)
+        await TeamMember.findOneAndUpdate(
+            { teamId, userId: newLeader._id },
+            { functionalRole: "Leader" },
+            { upsert: true, new: true }
+        );
 
         res.status(200).json({
             message: "Team leader replaced successfully.",
             newLeader: {
-                id: newLeaderData._id,
-                name: newLeaderData.name,
-                email: newLeaderData.email
+                id: newLeader._id,
+                name: newLeader.name,
+                email: newLeader.email
             }
         });
     }

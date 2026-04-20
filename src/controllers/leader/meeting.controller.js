@@ -5,6 +5,16 @@ const Task = require("../../models/task.model");
 const { startMeetingProcessingInBackground } = require("./meetingHelper");
 const { timeFrameToDate } = require("../../utils/timeFrameToData");
 
+exports.passWorkspaceIdAndTeamId = async (req, res) => {
+    try {
+        const workspaceId = req.user.workspaceId;
+        const teamId = req.user.teamId;
+        res.json({ workspaceId, teamId });
+    } catch (error) {
+        console.error("Error fetching workspaceId and teamId:", error);
+        res.status(500).json({ message: "Failed to fetch workspaceId and teamId" });
+    }
+}
 //need teamId from req.user
 //need filter from req.query
 exports.getMeetingList = async (req, res) => {

@@ -24,7 +24,14 @@ exports.getDashboardData = async (req, res) => {
             meetingDate: { $gte: today, $lt: tomorrow }
         });
 
-        const teamMembersList = await TeamMember.find({ teamId }).populate('userId', 'name email');
+        const teamMembersList = await TeamMember.find({ teamId })
+            .populate({
+                path: 'userId',
+                select: 'name email status',
+                match: { status: true }
+            });
+
+        const activeTeamMembers = teamMembersList.filter(m => m.userId);
 
         const tasks = await Task.find({ responsibleId: userId, teamId }).sort({ createdAt: -1 }).limit(4);
 
@@ -35,7 +42,7 @@ exports.getDashboardData = async (req, res) => {
             todaysMeetingCount,
             tasks,
             recentMOMs,
-            teamMembers: teamMembersList,
+            teamMembers: activeTeamMembers,
             teamDetails
         });
     } catch (error) {

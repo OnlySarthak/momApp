@@ -8,7 +8,8 @@ const {
   initiateMeeting,
   startMeetingProcessing,
   deleteMeeting,
-  getMeetingDetails
+  getMeetingDetails,
+  passWorkspaceIdAndTeamId
 } = require("../../controllers/leader/meeting.controller");
 
 // Apply authentication and authorization middleware
@@ -21,5 +22,6 @@ router.get("/:id", getMeetingDetails);
 router.post("/initiate", initiateMeeting);
 router.post("/:meetingId/processing", startMeetingProcessing);
 router.delete("/:id", deleteMeeting);
+router.get("/workspaceId-teamId", passWorkspaceIdAndTeamId);
 
 module.exports = router;

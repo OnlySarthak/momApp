@@ -1,6 +1,8 @@
 const MOM = require("../../models/mom.model");
 const Task = require("../../models/task.model");
 const Suggestion = require("../../models/suggestion.model");
+const User = require("../../models/user.model");
+const TeamMember = require("../../models/teamMember.model");
 const { timeFrameToDate } = require("../../utils/timeFrameToData");
 
 //need teamId from req.user
@@ -18,11 +20,12 @@ exports.getMOMList = async (req, res) => {
     }).sort({ createdAt: -1 });
 
     const momsWithAttendees = await Promise.all(moms.map(async (m) => {
-      const totalTasks = await taskModel.countDocuments({ momId: m._id });
-      const attendees = await momModel.find({ meetingId: m._id }).select('presentAttendees.name -_id');
+      // Fixed: taskModel → Task, momModel → MOM
+      const totalTasks = await Task.countDocuments({ momId: m._id });
+      const momWithAttendees = await MOM.findById(m._id).select('presentAttendees -_id');
       return {
         ...m.toObject(),
-        attendees,
+        presentAttendees: momWithAttendees ? momWithAttendees.presentAttendees : [],
         totalTasks
       };
     }));
@@ -113,12 +116,13 @@ exports.editMOM = async (req, res) => {
       presentAttendees,
     } = req.body;
 
-    presentAttendees.forEach(attendee => {
-      const user = User.findById(attendee._id);
+    // Fixed: forEach cannot use await — converted to for...of; added await to findById/findOne
+    for (const attendee of presentAttendees) {
+      const user = await User.findById(attendee._id);
       if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
       }
-      const teamMember = TeamMember.findOne({ userId: attendee._id });
+      const teamMember = await TeamMember.findOne({ userId: attendee._id });
       if (!teamMember) {
         return res.status(404).json({ success: false, message: 'Team member not found' });
       }
@@ -126,7 +130,7 @@ exports.editMOM = async (req, res) => {
       attendee.userId = attendee._id;
       attendee.name = user.name;
       attendee.functionalRole = teamMember.functionalRole;
-    });
+    }
 
     const updatedMOM = await MOM.findByIdAndUpdate(id, {
       summary: summery,

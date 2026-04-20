@@ -17,8 +17,8 @@ const teamMemberSchema = new mongoose.Schema(
     functionalRole: {
       type: String,
       enum: ["Developer", "Designer", "QA Engineer", "DevOps", "Product Manager", "Tester",
-        "Adviser", "Leader", "Bench", "HR", "Sales", "Marketing", "Leader", "Manager", null],
-      default: null,
+        "Adviser", "Leader", "Bench", "HR", "Sales", "Marketing", "Manager", "Member"],
+      default: "Member",
     }
   },
   { timestamps: true }

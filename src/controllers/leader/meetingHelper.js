@@ -2,7 +2,7 @@ const meeting = require("../../models/meeting.model");
 const teamMember = require("../../models/teamMember.model");
 const mom = require("../../models/mom.model");
 const task = require("../../models/task.model");
-const teamStats = require("../../models/teamStats.model");
+const teamStats = require("../../models/teams.stats.model");
 const transcriptModel = require("../../models/transcript.model");
 const { GoogleGenAI } = require("@google/genai");
 

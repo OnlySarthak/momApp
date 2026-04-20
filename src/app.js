@@ -1,14 +1,12 @@
 // src/app.js
 const express = require("express");
-// const cors = require("cors");
+const cors = require("cors");
 // const morgan = require("morgan");
 const parser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const errorMiddleware = require("./middlewares/error.middleware");
 
-
-// route imports (adjust paths as per your folders)
-const { auth } = require("./middlewares/auth.middleware");
+// Route imports
 const authRoutes = require("./routes/auth/auth.routes");
 const adminTeamRoutes = require("./routes/admin/team.routes");
 const adminMainRoutes = require("./routes/admin/admin.routes");
@@ -16,46 +14,79 @@ const leaderMeetingRoutes = require("./routes/leader/meeting.routes");
 const leaderMomRoutes = require("./routes/leader/mom.routes");
 const leaderTaskRoutes = require("./routes/leader/task.routes");
 const leaderTeamRoutes = require("./routes/leader/team.routes");
+const leaderMainRoutes = require("./routes/leader/leader.routes");
 const memberRoutes = require("./routes/member/member.routes");
+
 const profileRoutes = require("./routes/profile.routes");
 
 const app = express();
-app.use(cookieParser());
 
+/* =======================
+   CORS — must be FIRST
+   Handles OPTIONS preflight before any auth check runs
+======================= */
+
+
+
+
+// Allow preflight OPTIONS for all routes
+// NOTE: "*" is invalid in path-to-regexp v8 — use "(.*)" instead
+app.use(cors({
+   origin: "http://localhost:5173",
+   credentials: true,
+   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+   allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
+app.use(cookieParser());
 app.use(parser.json());
 app.use(parser.urlencoded({ extended: true }));
 
-
-
+/* =======================
+   HEALTH CHECK (public)
+======================= */
 app.get("/health", (req, res) => {
    res.status(200).json({
       success: true,
-    message: "Server is healthy 🚀",
-  });
+      message: "Server is healthy 🚀",
+   });
 });
 
 /* =======================
-   API ROUTES
+   PUBLIC ROUTES — NO AUTH
+   /auth/login and /auth/register are before router.use(auth)
+   inside auth.routes.js so they remain public.
+======================= */
+app.use("/api/auth", authRoutes);
+
+/* =======================
+   PROTECTED ROUTES
+   Auth is applied inside each route file, not globally here.
+   IMPORTANT: More specific paths must come BEFORE less specific ones.
+   e.g. /api/admin/teams BEFORE /api/admin  (to avoid param conflict)
 ======================= */
 
-app.use("/auth", authRoutes);
+// Admin — teams router FIRST (specific), then general admin router
+app.use("/api/admin/teams", adminTeamRoutes);
+app.use("/api/admin", adminMainRoutes);
 
-// Admin Routes
-app.use("/admin", adminMainRoutes);
-app.use("/admin/teams", adminTeamRoutes);
+// Leader
+app.use("/api/leader/meetings", leaderMeetingRoutes);
+app.use("/api/leader/moms", leaderMomRoutes);
+app.use("/api/leader/tasks", leaderTaskRoutes);
+app.use("/api/leader/teams", leaderTeamRoutes);
+app.use("/api/leader", leaderMainRoutes);
 
-// Leader Routes
-app.use("/leader/meetings", leaderMeetingRoutes);
-app.use("/leader/moms", leaderMomRoutes);
-app.use("/leader/tasks", leaderTaskRoutes);
-app.use("/leader/teams", leaderTeamRoutes);
 
-// Member Routes
-app.use("/member", memberRoutes);
-app.use("/member/suggestions", require("./routes/member/suggestion.routes"));
-app.use("/member/tasks", require("./routes/member/task.routes"));
+// Member — single router handles ALL member routes (/dashboard, /meetings,
+// /moms, /moms/:id, /moms/:id/suggestions, /tasks, /tasks/filter)
+// Do NOT mount member/task.routes or member/suggestion.routes separately
+// as member.routes.js already includes those endpoints, and double-mounting
+// causes "missing parameter name" path-to-regexp errors.
+app.use("/api/member", memberRoutes);
 
-app.use("/profile", profileRoutes);
+// Profile
+app.use("/api/profile", profileRoutes);
 
 app.use(errorMiddleware);
 

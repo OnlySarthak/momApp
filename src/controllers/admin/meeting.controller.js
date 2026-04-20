@@ -1,7 +1,7 @@
 const meeting = require("../../models/meeting.model");
 const Mom = require("../../models/mom.model");
 const Transcript = require("../../models/transcript.model");
-const { timeFrameToDate } = require("../../utils/timeframe.util");
+const { timeFrameToDate } = require("../../utils/timeFrameToData");
 
 //need workspaceId from req.user
 exports.getMeetingList = async (req, res) => {

@@ -30,7 +30,7 @@ exports.getDashboardData = async (req, res) => {
             .populate("userId", "name email systemRole status")
             .populate("teamId", "teamFunctionalRole teamName")
             .sort({ createdAt: -1 })
-            .limit(4)
+            .limit(5)
             .lean();
 
         const stats = await TeamStats.aggregate([

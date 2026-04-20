@@ -44,5 +44,7 @@ router.post("/users", usersController.addUser);
 router.get("/lookout/teams", lookoutController.lookOutTeams);
 router.get("/lookout/team-members", lookoutController.lookOutTeamMembers);
 router.get("/lookout/leaders", lookoutController.lookoutLeaders);
+router.get("/lookout/members", lookoutController.lookoutMembers);
+
 
 module.exports = router;

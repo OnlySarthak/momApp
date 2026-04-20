@@ -9,29 +9,24 @@ exports.getWorkspaceMembersList = async (req, res) => {
         const workspaceId = req.user.workspaceId;
 
         if (!workspaceId) {
-            return res.status(400).json({ message: "Workspace ID is required in cookies." });
+            return res.status(400).json({ message: "Workspace ID is required." });
         }
 
-        const members = await User.find({ workspaceId }).select('-password');
-        //get teamMember details and team details for each member 
+        const members = await User.find({ workspaceId }).select('-passwordHash');
 
         const memberDetails = await Promise.all(members.map(async (member) => {
-            if (member.status === false) {
-                return null; // Skip deactivated members for team details
-            }
-
-            const teamMemberData = await TeamMember.findOne({ userId: member._id }).populate("teamId", "functionalRole");
-
+            const teamMemberData = await TeamMember.findOne({ userId: member._id });
             return {
                 id: member._id,
                 name: member.name,
                 email: member.email,
                 systemRole: member.systemRole,
+                status: member.status,
                 team: teamMemberData ? teamMemberData.functionalRole : null
             };
         }));
 
-        res.status(200).json({ members: memberDetails.filter(Boolean) });
+        res.status(200).json({ members: memberDetails });
     } catch (error) {
         console.error("Error fetching workspace members:", error);
         res.status(500).json({ message: error.message || "Server error while fetching workspace members." });
@@ -46,9 +41,21 @@ exports.getDeactivatedMembersList = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required." });
         }
 
-        const members = await User.find({ workspaceId, status: false }).select("name email systemRole").select('-password');
+        const members = await User.find({ workspaceId, status: false }).select('-passwordHash');
 
-        res.status(200).json({ members });
+        const memberDetails = await Promise.all(members.map(async (member) => {
+            const teamMemberData = await TeamMember.findOne({ userId: member._id });
+            return {
+                id: member._id,
+                name: member.name,
+                email: member.email,
+                systemRole: member.systemRole,
+                status: member.status,
+                team: teamMemberData ? teamMemberData.functionalRole : null
+            };
+        }));
+
+        res.status(200).json({ members: memberDetails });
     } catch (error) {
         console.error("Error fetching deactivated members:", error);
         res.status(500).json({ message: error.message || "Server error while fetching deactivated members." });
@@ -60,25 +67,24 @@ exports.getActiveMembersList = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
         if (!workspaceId) {
-            return res.status(400).json({ message: "Workspace ID is required in cookies." });
+            return res.status(400).json({ message: "Workspace ID is required." });
         }
 
-        const members = await User.find({ workspaceId, status: true }).select("name email systemRole").select('-password');
+        const members = await User.find({ workspaceId, status: true }).select('-passwordHash');
 
         const memberDetails = await Promise.all(members.map(async (member) => {
-
-            const teamMemberData = await TeamMember.find({ userId: member._id }).populate("teamId", "functionalRole");
-
+            const teamMemberData = await TeamMember.findOne({ userId: member._id });
             return {
                 id: member._id,
                 name: member.name,
                 email: member.email,
                 systemRole: member.systemRole,
+                status: member.status,
                 team: teamMemberData ? teamMemberData.functionalRole : null
             };
         }));
 
-        res.status(200).json({ members: memberDetails.filter(Boolean) });
+        res.status(200).json({ members: memberDetails });
     } catch (error) {
         console.error("Error fetching active members:", error);
         res.status(500).json({ message: error.message || "Server error while fetching active members." });
@@ -92,30 +98,27 @@ exports.getMembersByRole = async (req, res) => {
         const workspaceId = req.user.workspaceId;
         const { role } = req.params;
         if (!role || !["admin", "leader", "member"].includes(role)) {
-            return res.status(400).json({ message: "Invalid role parameter. Role must be 'admin', 'member', or 'bench'." });
+            return res.status(400).json({ message: "Invalid role parameter. Role must be 'admin', 'leader', or 'member'." });
         }
         if (!workspaceId) {
-            return res.status(400).json({ message: "Workspace ID is required in cookies." });
+            return res.status(400).json({ message: "Workspace ID is required." });
         }
 
-        const members = await User.find({ workspaceId, systemRole: role }).select('-password').select('-password');
+        const members = await User.find({ workspaceId, systemRole: role }).select('-passwordHash');
 
         const memberDetails = await Promise.all(members.map(async (member) => {
-            if (member.status === false) {
-                return null; // Skip deactivated members for team details
-            }
-            const teamMemberData = await TeamMember.find({ userId: member._id }).populate("teamId", "functionalRole");
+            const teamMemberData = await TeamMember.findOne({ userId: member._id });
             return {
                 id: member._id,
                 name: member.name,
                 email: member.email,
                 systemRole: member.systemRole,
+                status: member.status,
                 team: teamMemberData ? teamMemberData.functionalRole : null
             };
-        }
-        ));
+        }));
 
-        res.status(200).json({ members: memberDetails.filter(Boolean) });
+        res.status(200).json({ members: memberDetails });
     }
     catch (error) {
         console.error("Error fetching members by role:", error);
@@ -123,35 +126,52 @@ exports.getMembersByRole = async (req, res) => {
     }
 };
 
+
 //need workspaceId from req.user
 //need name, email, systemRole, password from req.body
 exports.addUser = async (req, res) => {
     try {
-        const workspaceId = req.user.workspaceId;
+        const workspaceId = req.user?.workspaceId;
         const { name, email, systemRole, password } = req.body;
+
         if (!name || !email || !systemRole || !password) {
-            return res.status(400).json({ message: "Name, email, system role, and password are required." });
-        }
-        if (!workspaceId) {
-            return res.status(400).json({ message: "Workspace ID is required in cookies." });
-        }
-        if (!["leader", "member"].includes(systemRole)) {
-            return res.status(400).json({ message: "Invalid system role. Role must be 'admin', 'leader', or 'member'." });
+            return res.status(400).json({ message: "Missing required fields: Name, Email, Role, and Password are all required." });
         }
 
-        const existingUser = await User.findOne({ email, workspaceId }).select('-password').select('-password');
+        if (!workspaceId) {
+            return res.status(400).json({ message: "Workspace assignment failed. Please logout and login again." });
+        }
+
+        if (!["admin", "leader", "member"].includes(systemRole)) {
+            return res.status(400).json({ message: "Invalid system role provided." });
+        }
+
+        // Check if user already exists anywhere in the system
+        const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.status(400).json({ message: "A user with this email already exists in the workspace." });
+            if (existingUser.workspaceId.toString() === workspaceId.toString()) {
+                return res.status(400).json({ message: "A user with this email already exists in your workspace." });
+            } else {
+                return res.status(400).json({ message: "A user with this email is already registered in another workspace." });
+            }
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const newUser = new User({ name, email, systemRole, workspaceId, passwordHash: hashedPassword });
+        const newUser = new User({
+            name,
+            email,
+            systemRole,
+            workspaceId,
+            passwordHash: hashedPassword,
+            status: false
+        });
         await newUser.save();
 
-        res.status(201).json({ message: "User added successfully.", user: newUser });
+        res.status(201).json({ message: "User added successfully.", user: { id: newUser._id, name, email, systemRole } });
     } catch (error) {
         console.error("Error adding user:", error);
         res.status(500).json({ message: error.message || "Server error while adding user." });
     }
 };
+

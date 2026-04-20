@@ -18,11 +18,12 @@ exports.getMOMList = async (req, res) => {
         }).sort({ createdAt: -1 });
 
         const momsWithAttendees = await Promise.all(moms.map(async (m) => {
-            const totalTasks = await taskModel.countDocuments({ momId: m._id });
-            const attendees = await momModel.find({ meetingId: m._id }).select('presentAttendees.name -_id');
+            // Fixed: taskModel → Task, momModel → MOM
+            const totalTasks = await Task.countDocuments({ momId: m._id });
+            const momWithAttendees = await MOM.findById(m._id).select('presentAttendees -_id');
             return {
                 ...m.toObject(),
-                attendees,
+                presentAttendees: momWithAttendees ? momWithAttendees.presentAttendees : [],
                 totalTasks
             };
         }));

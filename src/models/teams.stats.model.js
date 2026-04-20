@@ -1,4 +1,3 @@
-// models/teamStats.model.js
 const mongoose = require("mongoose");
 
 //per team stats for tasks, we can add more fields as needed

@@ -31,10 +31,25 @@ exports.lookOutTeamMembers = async (req, res) => {
 exports.lookoutLeaders = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
-        const leaders = await User.find({ workspaceId, systemRole: "leader", status: false }).select('-password').select('-password');
+        // Available leaders (status: false means they are not currently leading a team)
+        const leaders = await User.find({ workspaceId, systemRole: "leader", status: false }).select('name email status');
         res.status(200).json({ success: true, data: leaders });
     } catch (error) {
         console.error('Error fetching leaders:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
+//need workspaceId from req.user
+exports.lookoutMembers = async (req, res) => {
+    try {
+        const workspaceId = req.user.workspaceId;
+        // Available members (status: false means they are not currently in a team)
+        const members = await User.find({ workspaceId, systemRole: "member", status: false }).select('name email status');
+        res.status(200).json({ success: true, data: members });
+    } catch (error) {
+        console.error('Error fetching members:', error);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+

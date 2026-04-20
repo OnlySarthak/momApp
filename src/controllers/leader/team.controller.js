@@ -7,17 +7,32 @@ exports.getTeams = async (req, res) => {
     try {
         const teamId = req.user.teamId;
 
-        const teamMembers = await TeamMember.find({ teamId }).populate('userId', 'name email');
+        const teamMembers = await TeamMember.find({ teamId })
+            .populate({
+                path: 'userId',
+                select: 'name email status',
+                match: { status: true }
+            });
+
+        const activeTeamMembers = teamMembers.filter(m => m.userId).map(m => ({
+            userId: m.userId._id,
+            memberName: m.userId.name,
+            memberEmail: m.userId.email,
+            functionalRole: m.functionalRole || "Member",
+            isLeader: m.userId._id.toString() === req.user.id.toString(),
+            id: m._id
+        }));
 
         const teamStats = await TeamStats.findOne({ teamId });
-
         const teamTasks = await Task.find({ teamId }).sort({ createdAt: -1 }).limit(5).select('title state responsibleId');
 
         res.json({
-            teamMembers,
+            teamMembers: activeTeamMembers,
             teamStats,
             teamTasks
         });
+
+
     } catch (error) {
         console.error("Error fetching team data:", error);
         res.status(500).json({ message: "Failed to fetch team data" });

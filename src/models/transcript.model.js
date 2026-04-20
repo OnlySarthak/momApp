@@ -20,7 +20,6 @@ const transcriptSchema = new mongoose.Schema(
         {
           speaker: String,
           text: String,
-          timestamp: Time,
         },
       ]
     },

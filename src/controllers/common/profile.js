@@ -6,7 +6,7 @@ const Team = require("../../models/team.model");
 //need userId from req.user
 exports.getProfile = async (req, res) => {
     try {
-        const userId = req.user.d;
+        const userId = req.user.id; // Fixed typo: was req.user.d
 
         const userProfile = await User.findOne({ _id: userId }).select('-password').lean();
 
