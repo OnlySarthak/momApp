@@ -31,12 +31,14 @@ exports.getMomList = async (req, res) => {
   }
 };
 
-//need momId from req.params
 exports.getMomDetails = async (req, res) => {
   try {
     const { id } = req.params;
 
     const momDetails = await MOM.findById(id)
+      .populate('workspaceId', 'name')
+      .populate('teamId', 'teamName')
+      .populate('meetingId', 'title meetingDate meetingDuration leaderName projectName')
       .lean();
 
     if (!momDetails) {
@@ -45,10 +47,12 @@ exports.getMomDetails = async (req, res) => {
 
     //pending tasks
     const pendingTasks = await Task.find({ momId: id, state: 'pending' }).lean();
+    //all tasks for export
+    const allTasks = await Task.find({ momId: id }).lean();
     //suggestions
     const suggestions = await Suggestion.find({ momId: id }).lean();
 
-    res.status(200).json({ success: true, data: { ...momDetails, pendingTasks, suggestions } });
+    res.status(200).json({ success: true, data: { ...momDetails, pendingTasks, allTasks, suggestions } });
   } catch (error) {
     console.error('Error fetching MOM details:', error);
     res.status(500).json({ success: false, message: 'Server Error' });

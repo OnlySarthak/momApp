@@ -24,7 +24,7 @@ exports.login = async (req, res) => {
 
         const token = user.generateAuthToken();
 
-        res.cookie("token", token);
+        res.cookie("token", token, { maxAge: 30 * 24 * 60 * 60 * 1000 });
         res.status(200).json({
             message: "Login successful.",
             user: {

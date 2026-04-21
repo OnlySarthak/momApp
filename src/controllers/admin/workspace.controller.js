@@ -46,7 +46,7 @@ exports.register = async (req, res) => {
         // login user
         const token = newUser.generateAuthToken();
 
-        res.cookie("token", token);
+        res.cookie("token", token, { maxAge: 30 * 24 * 60 * 60 * 1000 });
 
         res.status(201).json({ 
             message: "User and workspace created successfully",

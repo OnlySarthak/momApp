@@ -19,10 +19,9 @@ exports.getProfile = async (req, res) => {
 
         //if user is not admin and non bench then attach team name to profile
         if (userProfile.systemRole !== "admin" && userProfile.systemRole !== "bench") {
-            const teamMemberInfo = await TeamMember.findOne({ userId }).lean();
-            if (teamMemberInfo) {
-                const team = await Team.findById(teamMemberInfo.teamId).select('name').lean();
-                userProfile.teamName = team ? team.name : null;
+            if (req.user.teamId) {
+                const team = await Team.findById(req.user.teamId).select('teamName').lean();
+                userProfile.teamName = team ? team.teamName : null;
             } else {
                 userProfile.teamName = null;
             }
@@ -59,5 +58,29 @@ exports.changePassword = async (req, res) => {
     } catch (error) {
         console.error("Error changing password:", error);
         res.status(500).json({ message: "Failed to change password" });
+    }
+};
+
+exports.updateProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { name } = req.body;
+
+        if (!name || name.trim() === "") {
+            return res.status(400).json({ message: "Name is required" });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        user.name = name.trim();
+        await user.save();
+
+        res.json({ message: "Profile updated successfully", user: { name: user.name } });
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        res.status(500).json({ message: "Failed to update profile" });
     }
 };

@@ -1,0 +1,146 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{titlesec}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+
+\titleformat{\section}{\large\bfseries}{}{0em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
+
+\setlength{\parskip}{6pt}
+\setlength{\parindent}{0pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Minutes of Meeting}
+\lhead{{{workspaceName}}}
+\rfoot{\thepage}
+
+\begin{document}
+
+% ---------------- HEADER ----------------
+\begin{center}
+{\LARGE \textbf{Minutes of Meeting}}\\[8pt]
+
+
+{\large \textbf{``` {{meetingTitle}} ```}}\\[6pt]
+\\
+\begin{tabular}{rl}
+    \textbf{Project:} & {{projectName}} \\
+    \textbf{Date:} & {{meetingDate}} \\
+    \textbf{Duration:} & {{meetingDuration}} \\
+    \textbf{Leader:} & {{leaderName}} \\
+\end{tabular}
+
+
+\end{center}
+
+\vspace{10pt}
+\hrule
+\vspace{12pt}
+
+% ---------------- MEETING INFO ----------------
+\section*{Meeting Information}
+
+\textbf{Workspace:} {{workspaceName}} \\
+\textbf{Team:} {{teamName}} \\
+\textbf{Project:} {{projectName}} \\
+\textbf{Meeting ID:} {{meetingId}} \\
+\textbf{Processing Status:} {{processingStage}}
+
+
+
+% ---------------- CONTEXT ----------------
+\section*{Context}
+\textbf{Type:} {{contextLabel}}
+
+% ---------------- SUMMARY ----------------
+\section*{Summary}
+{{summary}}
+
+% ---------------- ATTENDANCE ----------------
+\section*{Attendance}
+
+\textbf{Present:}
+\begin{itemize}
+{{#each attendees.present}}
+\item {{name}} — {{role}}
+{{/each}}
+\end{itemize}
+
+\textbf{Absent:}
+\begin{itemize}
+{{#each attendees.absent}}
+\item {{name}} — {{role}}
+{{/each}}
+\end{itemize}
+
+% ---------------- DECISIONS ----------------
+\section*{Key Decisions}
+\begin{itemize}
+{{#each decisions}}
+\item {{this}}
+{{/each}}
+\end{itemize}
+
+% ---------------- INSIGHTS ----------------
+\section*{Insights}
+{{insights}}
+
+% ---------------- TASK SUMMARY ----------------
+\section*{Task Summary}
+
+\textbf{Total Tasks:} {{taskSummary.total}} \\
+
+\textbf{Completed:} {{taskSummary.completed}} \\
+
+\textbf{In Progress:} {{taskSummary.inProgress}} \\
+
+\textbf{Pending:} {{taskSummary.pending}}
+
+
+
+
+% ---------------- TASK DETAILS ----------------
+\section*{Tasks by Member}
+
+{{#each tasksByMember}}
+
+\textbf{{{name}}} ({{role}})
+
+\textit{Completed:}
+\begin{itemize}
+{{#each completed}}
+\item {{this}}
+{{/each}}
+\end{itemize}
+
+\textit{In Progress:}
+\begin{itemize}
+{{#each inProgress}}
+\item {{this}}
+{{/each}}
+\end{itemize}
+
+\textit{Pending:}
+\begin{itemize}
+{{#each pending}}
+\item {{this}}
+{{/each}}
+\end{itemize}
+
+\vspace{8pt}
+
+{{/each}}
+
+% ---------------- FOOTER ----------------
+\vspace{12pt}
+\hrule
+\vspace{4pt}
+\small Generated automatically by Meeting Intelligence System
+
+\end{document}

@@ -182,8 +182,15 @@ const generatePrompt = async (meetingId) => {
 You are an advanced AI meeting assistant.
 
 INPUT:
+- Meeting title and agenda
 - Meeting audio file
 - Full team member list (with roles)
+
+-------------------------------------
+
+MEETING CONTEXT:
+Title: ${meetingData.title}
+Agenda: ${meetingData.agenda || 'No agenda provided'}
 
 -------------------------------------
 

@@ -10,6 +10,10 @@ const meetingSchema = new mongoose.Schema(
       type: String,
       default: ""
     },
+    agenda: {
+      type: String,
+      default: ""
+    },
     workspaceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Workspace",

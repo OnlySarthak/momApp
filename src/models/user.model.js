@@ -50,7 +50,7 @@ userSchema.methods.generateAuthToken = function () {
       name: user.name
     },
     JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: "30d" }
   );
   return token;
 }

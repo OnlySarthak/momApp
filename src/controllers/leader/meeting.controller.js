@@ -44,13 +44,13 @@ exports.getMeetingList = async (req, res) => {
     }
 }
 
-//need title, projectName and description from req.body
+//need title, projectName and agenda from req.body
 exports.initiateMeeting = async (req, res) => {
     try {
-        const { title, projectName, description } = req.body;
+        const { title, projectName, agenda } = req.body;
 
-        if (!projectName || !description || !title) {
-            return res.status(400).json({ message: "Title, Project Name and Description are required" });
+        if (!projectName || !agenda || !title) {
+            return res.status(400).json({ message: "Title, Project Name and Agenda are required" });
         }
 
         const newMeeting = new Meeting({
@@ -59,6 +59,7 @@ exports.initiateMeeting = async (req, res) => {
             leaderId: req.user.id,
             leaderName: req.user.name,
             title: title,
+            agenda: agenda,
             projectName: projectName,
             meetingDate: new Date(),
             processingStage: "initialized"
