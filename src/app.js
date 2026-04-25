@@ -21,16 +21,6 @@ const profileRoutes = require("./routes/profile.routes");
 
 const app = express();
 
-/* =======================
-   CORS — must be FIRST
-   Handles OPTIONS preflight before any auth check runs
-======================= */
-
-
-
-
-// Allow preflight OPTIONS for all routes
-// NOTE: "*" is invalid in path-to-regexp v8 — use "(.*)" instead
 app.use(cors({
    origin: "http://localhost:5173",
    credentials: true,
@@ -42,9 +32,6 @@ app.use(cookieParser());
 app.use(parser.json());
 app.use(parser.urlencoded({ extended: true }));
 
-/* =======================
-   HEALTH CHECK (public)
-======================= */
 app.get("/health", (req, res) => {
    res.status(200).json({
       success: true,
@@ -52,21 +39,9 @@ app.get("/health", (req, res) => {
    });
 });
 
-/* =======================
-   PUBLIC ROUTES — NO AUTH
-   /auth/login and /auth/register are before router.use(auth)
-   inside auth.routes.js so they remain public.
-======================= */
 app.use("/api/auth", authRoutes);
 
-/* =======================
-   PROTECTED ROUTES
-   Auth is applied inside each route file, not globally here.
-   IMPORTANT: More specific paths must come BEFORE less specific ones.
-   e.g. /api/admin/teams BEFORE /api/admin  (to avoid param conflict)
-======================= */
 
-// Admin — teams router FIRST (specific), then general admin router
 app.use("/api/admin/teams", adminTeamRoutes);
 app.use("/api/admin", adminMainRoutes);
 
@@ -77,12 +52,6 @@ app.use("/api/leader/tasks", leaderTaskRoutes);
 app.use("/api/leader/teams", leaderTeamRoutes);
 app.use("/api/leader", leaderMainRoutes);
 
-
-// Member — single router handles ALL member routes (/dashboard, /meetings,
-// /moms, /moms/:id, /moms/:id/suggestions, /tasks, /tasks/filter)
-// Do NOT mount member/task.routes or member/suggestion.routes separately
-// as member.routes.js already includes those endpoints, and double-mounting
-// causes "missing parameter name" path-to-regexp errors.
 app.use("/api/member", memberRoutes);
 
 // Profile
