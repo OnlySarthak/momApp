@@ -15,6 +15,7 @@ exports.passWorkspaceIdAndTeamId = async (req, res) => {
         res.status(500).json({ message: "Failed to fetch workspaceId and teamId" });
     }
 }
+
 //need teamId from req.user
 //need filter from req.query
 exports.getMeetingList = async (req, res) => {
