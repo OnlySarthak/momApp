@@ -3,9 +3,9 @@ const MOM = require("../../models/mom.model");
 const Transcript = require("../../models/transcript.model");
 const Task = require("../../models/task.model");
 const User = require("../../models/user.model");
-const { startMeetingProcessingInBackground } = require("./meetingHelper");
 const { timeFrameToDate } = require("../../utils/timeFrameToData");
 const { populateMomAttendees } = require("../../utils/momHelper");
+const { addMeetingToQueue } = require("../../queues/meetingQueue");
 
 exports.passWorkspaceIdAndTeamId = async (req, res) => {
     try {
@@ -101,8 +101,8 @@ exports.startMeetingProcessing = async (req, res) => {
             processingStage: "uploaded"
         });
 
-        // Now trigger AI processing
-        startMeetingProcessingInBackground(meetingId, audioUrl);
+        // Now trigger AI processing via BullMQ job queue
+        await addMeetingToQueue(meetingId, audioUrl);
 
         res.status(200).json({ message: "Meeting processing started successfully" });
     } catch (error) {
