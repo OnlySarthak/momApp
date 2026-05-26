@@ -115,10 +115,13 @@ exports.startMeetingProcessing = async (req, res) => {
 exports.deleteMeeting = async (req, res) => {
     try {
         const meetingId = req.params.id;
-        await Meeting.findByIdAndDelete(meetingId);
-        await MOM.findOneAndDelete({ meetingId });
-        await Transcript.deleteMany({ meetingId });
-        await Task.deleteMany({ meetingId });
+        await Meeting.deleteOne({ _id: meetingId });
+        await MOM.deleteOne({ meetingId });
+        await Transcript.deleteOne({ meetingId });
+        await Task.deleteOne({ meetingId });
+
+        //delete the meeting audio from the cloud storage 
+        // await deleteFileFromCloud(meetingDetails.audioFileUrl);
 
         res.status(200).json({ message: "Meeting deleted successfully" });
     } catch (error) {
@@ -136,8 +139,8 @@ exports.getMeetingDetails = async (req, res) => {
         if (!meetingDetails) {
             return res.status(404).json({ success: false, message: "Meeting not found" });
         }
-        meetingDetails.leaderName  = await User.findById(meetingDetails.leaderId).select('name').lean().then(user => user ? user.name : 'Unknown');
-        
+        meetingDetails.leaderName = await User.findById(meetingDetails.leaderId).select('name').lean().then(user => user ? user.name : 'Unknown');
+
         const momDetails = await MOM.findOne({ meetingId }).lean();
         const populatedMomDetails = await populateMomAttendees(momDetails);
         const transcripts = await Transcript.find({ meetingId });

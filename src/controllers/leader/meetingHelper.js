@@ -15,7 +15,7 @@ exports.startMeetingProcessingInBackground = async (meetingId, audioFileUrl) => 
         });
 
         const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
+            model: "gemini-2.5-pro",
             contents: [
                 {
                     role: "user",

@@ -17,9 +17,11 @@ async function populateMomAttendees(mom) {
   const userIds = momObj.presentAttendees.map(a => a.userId).filter(Boolean);
   if (userIds.length === 0) return momObj;
   
+  const teamIdVal = momObj.teamId ? (momObj.teamId._id || momObj.teamId) : null;
+  
   const [users, teamMembers] = await Promise.all([
     User.find({ _id: { $in: userIds } }).select('name').lean(),
-    TeamMember.find({ teamId: momObj.teamId, userId: { $in: userIds } }).select('userId functionalRole').lean()
+    teamIdVal ? TeamMember.find({ teamId: teamIdVal, userId: { $in: userIds } }).select('userId functionalRole').lean() : []
   ]);
   
   const userMap = new Map(users.map(u => [u._id.toString(), u.name]));
@@ -52,7 +54,8 @@ async function populateMultipleMomsAttendees(moms) {
   const momObjs = moms.map(mom => {
     const obj = typeof mom.toObject === 'function' ? mom.toObject() : mom;
     if (obj.teamId) {
-      teamIdsSet.add(obj.teamId.toString());
+      const teamIdStr = obj.teamId._id ? obj.teamId._id.toString() : obj.teamId.toString();
+      teamIdsSet.add(teamIdStr);
     }
     if (obj.presentAttendees) {
       obj.presentAttendees.forEach(a => {
@@ -82,7 +85,8 @@ async function populateMultipleMomsAttendees(moms) {
       momObj.presentAttendees = momObj.presentAttendees.map(a => {
         if (!a.userId) return a;
         const uIdStr = a.userId.toString();
-        const roleKey = `${momObj.teamId.toString()}_${uIdStr}`;
+        const teamIdStr = momObj.teamId._id ? momObj.teamId._id.toString() : momObj.teamId.toString();
+        const roleKey = `${teamIdStr}_${uIdStr}`;
         return {
           userId: a.userId,
           name: userMap.get(uIdStr) || 'Unknown',

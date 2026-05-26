@@ -21,8 +21,21 @@ const profileRoutes = require("./routes/profile.routes");
 
 const app = express();
 
+const allowedOrigins = [
+   process.env.FRONTEND_URL,
+   "http://localhost:5173",
+   "http://localhost:5174",
+   "http://localhost:5175",
+];
+
 app.use(cors({
-   origin: process.env.FRONTEND_URL,
+   origin: function (origin, callback) {
+      if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.startsWith("http://localhost:")) {
+         callback(null, true);
+      } else {
+         callback(new Error("Not allowed by CORS"));
+      }
+   },
    credentials: true,
    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
    allowedHeaders: ["Content-Type", "Authorization"],

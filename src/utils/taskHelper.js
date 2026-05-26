@@ -12,9 +12,11 @@ async function populateTaskResponsible(task) {
   
   if (!taskObj.responsibleId) return taskObj;
   
+  const teamIdVal = taskObj.teamId ? (taskObj.teamId._id || taskObj.teamId) : null;
+  
   const [user, teamMember] = await Promise.all([
     User.findById(taskObj.responsibleId).select('name').lean(),
-    taskObj.teamId ? TeamMember.findOne({ teamId: taskObj.teamId, userId: taskObj.responsibleId }).select('functionalRole').lean() : null
+    teamIdVal ? TeamMember.findOne({ teamId: teamIdVal, userId: taskObj.responsibleId }).select('functionalRole').lean() : null
   ]);
   
   taskObj.resposibleName = user ? user.name : 'Unknown';
@@ -40,7 +42,8 @@ async function populateMultipleTasksResponsible(tasks) {
       userIdsSet.add(obj.responsibleId.toString());
     }
     if (obj.teamId) {
-      teamIdsSet.add(obj.teamId.toString());
+      const teamIdStr = obj.teamId._id ? obj.teamId._id.toString() : obj.teamId.toString();
+      teamIdsSet.add(teamIdStr);
     }
     return obj;
   });
@@ -63,7 +66,8 @@ async function populateMultipleTasksResponsible(tasks) {
       const uIdStr = obj.responsibleId.toString();
       obj.resposibleName = userMap.get(uIdStr) || 'Unknown';
       if (obj.teamId) {
-        const roleKey = `${obj.teamId.toString()}_${uIdStr}`;
+        const teamIdStr = obj.teamId._id ? obj.teamId._id.toString() : obj.teamId.toString();
+        const roleKey = `${teamIdStr}_${uIdStr}`;
         obj.responsibleFunctionalRole = roleMap.get(roleKey) || 'Member';
       } else {
         obj.responsibleFunctionalRole = 'Member';

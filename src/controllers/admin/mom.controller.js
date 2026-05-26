@@ -3,6 +3,8 @@ const MOM = require('../../models/mom.model');
 const Task = require('../../models/task.model');
 const Suggestion = require('../../models/suggestion.model');
 const User = require('../../models/user.model');
+const Team = require('../../models/team.model');
+const Workspace = require('../../models/workspace.model');
 const { timeFrameToDate } = require('../../utils/timeFrameToData');
 const { populateMomAttendees, populateMultipleMomsAttendees } = require('../../utils/momHelper');
 const { populateMultipleTasksResponsible } = require('../../utils/taskHelper');
@@ -19,6 +21,7 @@ exports.getMomList = async (req, res) => {
     const moms = await MOM.find({ workspaceId, createdAt: dateRange })
       .sort({ createdAt: -1 })
       .populate('meetingId', 'title') // Populate meeting title
+      .populate('teamId', 'teamName')
       .lean(); // Use lean() to get plain JavaScript objects
 
     const populatedMoms = await populateMultipleMomsAttendees(moms);

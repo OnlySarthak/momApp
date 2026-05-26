@@ -2,6 +2,7 @@ const meeting = require("../../models/meeting.model");
 const Mom = require("../../models/mom.model");
 const Transcript = require("../../models/transcript.model");
 const User = require("../../models/user.model");
+const Team = require("../../models/team.model");
 const { timeFrameToDate } = require("../../utils/timeFrameToData");
 const { populateMomAttendees } = require("../../utils/momHelper");
 
@@ -13,6 +14,7 @@ exports.getMeetingList = async (req, res) => {
 
         const dateRange = timeFrameToDate(timeframe);
         const recentMeetings = await meeting.find({ workspaceId, meetingDate: dateRange })
+            .populate("teamId", "teamName")
             .sort({ meetingDate: -1 }); // Sort by meeting date in descending order
 
         const meetingDataWithAttendees = await Promise.all(recentMeetings.map(async (meeting) => {
