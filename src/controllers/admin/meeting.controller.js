@@ -1,7 +1,9 @@
 const meeting = require("../../models/meeting.model");
 const Mom = require("../../models/mom.model");
 const Transcript = require("../../models/transcript.model");
+const User = require("../../models/user.model");
 const { timeFrameToDate } = require("../../utils/timeFrameToData");
+const { populateMomAttendees } = require("../../utils/momHelper");
 
 //need workspaceId from req.user
 exports.getMeetingList = async (req, res) => {
@@ -14,10 +16,16 @@ exports.getMeetingList = async (req, res) => {
             .sort({ meetingDate: -1 }); // Sort by meeting date in descending order
 
         const meetingDataWithAttendees = await Promise.all(recentMeetings.map(async (meeting) => {
-            const attendees = await Mom.find({ meetingId: meeting._id }).select("presentAttendees.name");
+            const momData = await Mom.findOne({ meetingId: meeting._id }).select("presentAttendees");
+            let attendeeNames = [];
+            if (momData && momData.presentAttendees && momData.presentAttendees.length > 0) {
+                const userIds = momData.presentAttendees.map(a => a.userId).filter(Boolean);
+                const users = await User.find({ _id: { $in: userIds } }).select('name').lean();
+                attendeeNames = users.map(u => u.name);
+            }
             return {
                 ...meeting.toObject(),
-                attendees: attendees.flatMap(mom => mom.presentAttendees.map(attendee => attendee.name)) // Extract attendee names
+                attendees: attendeeNames
             };
         }));
 
@@ -38,12 +46,13 @@ exports.getMeetingDetails = async (req, res) => {
             return res.status(404).json({ success: false, message: "Meeting not found" });
         }
 
-        const momDetails = await Mom.findOne({ meetingId });
+        const momDetails = await Mom.findOne({ meetingId }).lean();
+        const populatedMomDetails = await populateMomAttendees(momDetails);
         const transcripts = await Transcript.find({ meetingId });
 
         const combinedData = {
             ...meetingDetails.toObject(),
-            mom: momDetails,
+            mom: populatedMomDetails,
             transcripts: transcripts
         };
 

@@ -1,5 +1,6 @@
 const Task = require("../../models/task.model");
 const TeamMember = require("../../models/teamMember.model");
+const { populateTaskResponsible, populateMultipleTasksResponsible } = require("../../utils/taskHelper");
 
 //need teamId from req.user
 exports.getTasksList = async (req, res) => {
@@ -18,13 +19,14 @@ exports.getTasksList = async (req, res) => {
         const toDoTasks = await Task.countDocuments({ ...filter, state: "pending" });
 
         const tasks = await Task.find(filter).sort({ createdAt: -1 });
+        const populatedTasks = await populateMultipleTasksResponsible(tasks);
 
         res.json({
             totalTasks,
             completedTasks,
             pendingTasks,
             toDoTasks,
-            tasks
+            tasks: populatedTasks
         });
     } catch (error) {
         console.error("Error fetching tasks:", error);
@@ -38,8 +40,9 @@ exports.getInProgressTasks = async (req, res) => {
         const teamId = req.user.teamId;
 
         const inProgressTasks = await Task.find({ teamId, state: "in_progress" }).sort({ createdAt: -1 });
+        const populatedTasks = await populateMultipleTasksResponsible(inProgressTasks);
 
-        res.json(inProgressTasks);
+        res.json(populatedTasks);
     } catch (error) {
         console.error("Error fetching in-progress tasks:", error);
         res.status(500).json({ message: "Failed to fetch in-progress tasks" });
@@ -51,8 +54,9 @@ exports.getCompletedTasks = async (req, res) => {
     try {
         const teamId = req.user.teamId;
         const completedTasks = await Task.find({ teamId, state: "completed" }).sort({ createdAt: -1 });
+        const populatedTasks = await populateMultipleTasksResponsible(completedTasks);
 
-        res.json(completedTasks);
+        res.json(populatedTasks);
     } catch (error) {
         console.error("Error fetching completed tasks:", error);
         res.status(500).json({ message: "Failed to fetch completed tasks" });
@@ -64,7 +68,8 @@ exports.getPendingTasks = async (req, res) => {
     try {
         const teamId = req.user.teamId;
         const pendingTasks = await Task.find({ teamId, state: "pending" }).sort({ createdAt: -1 });
-        res.json(pendingTasks);
+        const populatedTasks = await populateMultipleTasksResponsible(pendingTasks);
+        res.json(populatedTasks);
     } catch (error) {
         console.error("Error fetching pending tasks:", error);
         res.status(500).json({ message: "Failed to fetch pending tasks" });
@@ -95,8 +100,6 @@ exports.assignTask = async (req, res) => {
 
         const newTask = new Task({
             title: taskTitle,
-            resposibleName: assignedTo.userId.name,
-            responsibleFunctionalRole: assignedTo.functionalRole,
             responsibleId: assignedTo.userId._id,
             state: "pending",
             momId: null,
@@ -105,7 +108,8 @@ exports.assignTask = async (req, res) => {
         });
 
         await newTask.save();
-        res.status(201).json({ message: "Task created successfully", task: newTask });
+        const populatedTask = await populateTaskResponsible(newTask);
+        res.status(201).json({ message: "Task created successfully", task: populatedTask });
     } catch (error) {
         console.error("Error creating task:", error);
         res.status(500).json({ message: "Failed to create task" });

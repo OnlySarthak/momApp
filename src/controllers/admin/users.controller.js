@@ -12,7 +12,7 @@ exports.getWorkspaceMembersList = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required." });
         }
 
-        const members = await User.find({ workspaceId }).select('-passwordHash');
+        const members = await User.find({ workspaceId, isDeleted: { $ne: true } }).select('-passwordHash');
 
         const memberDetails = await Promise.all(members.map(async (member) => {
             const teamMemberData = await TeamMember.findOne({ userId: member._id });
@@ -41,7 +41,7 @@ exports.getDeactivatedMembersList = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required." });
         }
 
-        const members = await User.find({ workspaceId, status: false }).select('-passwordHash');
+        const members = await User.find({ workspaceId, status: false, isDeleted: { $ne: true } }).select('-passwordHash');
 
         const memberDetails = await Promise.all(members.map(async (member) => {
             const teamMemberData = await TeamMember.findOne({ userId: member._id });
@@ -70,7 +70,7 @@ exports.getActiveMembersList = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required." });
         }
 
-        const members = await User.find({ workspaceId, status: true }).select('-passwordHash');
+        const members = await User.find({ workspaceId, status: true, isDeleted: { $ne: true } }).select('-passwordHash');
 
         const memberDetails = await Promise.all(members.map(async (member) => {
             const teamMemberData = await TeamMember.findOne({ userId: member._id });
@@ -104,7 +104,7 @@ exports.getMembersByRole = async (req, res) => {
             return res.status(400).json({ message: "Workspace ID is required." });
         }
 
-        const members = await User.find({ workspaceId, systemRole: role }).select('-passwordHash');
+        const members = await User.find({ workspaceId, systemRole: role, isDeleted: { $ne: true } }).select('-passwordHash');
 
         const memberDetails = await Promise.all(members.map(async (member) => {
             const teamMemberData = await TeamMember.findOne({ userId: member._id });
@@ -180,14 +180,15 @@ exports.removeUser = async (req, res) => {
     try {
         const { id } = req.params;
         const workspaceId = req.user.workspaceId;
-        const user = await User.findOne({ _id: id, workspaceId });
+        const user = await User.findOne({ _id: id, workspaceId, isDeleted: { $ne: true } });
         if (!user) return res.status(404).json({ message: "User not found" });
         if (user.systemRole === "admin") return res.status(403).json({ message: "Cannot remove admin" });
         if (user.status !== false) return res.status(400).json({ message: "Can only remove deactivated users" });
         
-        // Also remove team mapping
-        await TeamMember.deleteMany({ userId: id });
-        await User.findByIdAndDelete(id);
+        // Also soft-delete team mappings
+        await TeamMember.updateMany({ userId: id }, { isDeleted: true });
+        user.isDeleted = true;
+        await user.save();
         res.json({ message: "User removed successfully" });
     } catch (err) {
         console.error("Error removing user:", err);
@@ -200,7 +201,7 @@ exports.renameUser = async (req, res) => {
         const { id } = req.params;
         const { name } = req.body;
         const workspaceId = req.user.workspaceId;
-        const user = await User.findOne({ _id: id, workspaceId });
+        const user = await User.findOne({ _id: id, workspaceId, isDeleted: { $ne: true } });
         if (!user) return res.status(404).json({ message: "User not found" });
         if (user.systemRole === "admin") return res.status(403).json({ message: "Cannot modify admin" });
         
@@ -221,7 +222,7 @@ exports.resetPassword = async (req, res) => {
         if (!password || password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters long" });
         
         const workspaceId = req.user.workspaceId;
-        const user = await User.findOne({ _id: id, workspaceId });
+        const user = await User.findOne({ _id: id, workspaceId, isDeleted: { $ne: true } });
         if (!user) return res.status(404).json({ message: "User not found" });
         if (user.systemRole === "admin") return res.status(403).json({ message: "Cannot modify admin" });
         

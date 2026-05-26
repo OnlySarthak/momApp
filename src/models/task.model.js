@@ -12,13 +12,7 @@ const taskSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    resposibleName:{
-      type: String,
-      required: true
-    },
-    responsibleFunctionalRole:{
-      type: String,
-    },
+
     state: {
       type: String,
       enum: ["pending", "in_progress", "completed"],

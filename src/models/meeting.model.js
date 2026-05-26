@@ -31,10 +31,10 @@ const meetingSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    leaderName: {
-      type: String,
-      required: true
-    },
+    // leaderName: {
+    //   type: String,
+    //   required: true
+    // },
     audioFileUrl: {
       type: String
     },

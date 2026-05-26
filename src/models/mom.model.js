@@ -36,16 +36,8 @@ const momSchema = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: "User",
           required: true
-        },
-        name: {
-          type: String,
-          required: true
-        },
-        functionalRole: {
-          type: String,
         }
       }],
-      ref: "User",
       default: []
     },
     workspaceId: {

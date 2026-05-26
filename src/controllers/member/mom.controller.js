@@ -2,6 +2,8 @@ const MOM = require("../../models/mom.model");
 const Task = require("../../models/task.model");
 const Suggestion = require("../../models/suggestion.model");
 const { timeFrameToDate } = require("../../utils/timeFrameToData");
+const { populateMomAttendees, populateMultipleMomsAttendees } = require("../../utils/momHelper");
+const { populateMultipleTasksResponsible } = require("../../utils/taskHelper");
 
 //need teamId from req.user
 //need filter from req.query
@@ -17,13 +19,12 @@ exports.getMOMList = async (req, res) => {
             createdAt: dateFilter
         }).sort({ createdAt: -1 });
 
-        const momsWithAttendees = await Promise.all(moms.map(async (m) => {
-            // Fixed: taskModel → Task, momModel → MOM
+        const populatedMoms = await populateMultipleMomsAttendees(moms);
+
+        const momsWithAttendees = await Promise.all(populatedMoms.map(async (m) => {
             const totalTasks = await Task.countDocuments({ momId: m._id });
-            const momWithAttendees = await MOM.findById(m._id).select('presentAttendees -_id');
             return {
-                ...m.toObject(),
-                presentAttendees: momWithAttendees ? momWithAttendees.presentAttendees : [],
+                ...m,
                 totalTasks
             };
         }));
@@ -49,16 +50,20 @@ exports.getMomDetails = async (req, res) => {
             return res.status(404).json({ success: false, message: 'MOM not found' });
         }
 
+        const populatedMomDetails = await populateMomAttendees(momDetails);
+
         //pending tasks
         const pendingTasks = await Task.find({ momId: id, state: 'pending' }).lean();
+        const populatedPendingTasks = await populateMultipleTasksResponsible(pendingTasks);
         //all tasks for export
         const allTasks = await Task.find({ momId: id }).lean();
+        const populatedAllTasks = await populateMultipleTasksResponsible(allTasks);
         //suggestions
         const suggestions = await Suggestion.find({ momId: id })
             .populate('suggestedBy', 'name')
             .lean();
 
-        res.status(200).json({ success: true, data: { ...momDetails, pendingTasks, allTasks, suggestions } });
+        res.status(200).json({ success: true, data: { ...populatedMomDetails, pendingTasks: populatedPendingTasks, allTasks: populatedAllTasks, suggestions } });
     } catch (error) {
         console.error('Error fetching MOM details:', error);
         res.status(500).json({ success: false, message: 'Server Error' });

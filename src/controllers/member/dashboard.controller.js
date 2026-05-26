@@ -23,11 +23,11 @@ exports.getDashboardData = async (req, res) => {
             meetingDate: { $gte: today, $lt: tomorrow }
         });
 
-        const teamMembersList = await TeamMember.find({ teamId })
+        const teamMembersList = await TeamMember.find({ teamId, isDeleted: { $ne: true } })
             .populate({
                 path: 'userId',
                 select: 'name email status',
-                match: { status: true }
+                match: { status: true, isDeleted: { $ne: true } }
             });
 
         const activeTeamMembers = teamMembersList.filter(m => m.userId);

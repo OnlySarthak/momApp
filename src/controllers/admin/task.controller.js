@@ -1,5 +1,6 @@
 const task = require('../../models/task.model');
 const MOM = require('../../models/mom.model');
+const { populateMultipleTasksResponsible } = require('../../utils/taskHelper');
 
 //need workspaceId from req.user
 exports.getTask = async (req, res) => {
@@ -10,8 +11,9 @@ exports.getTask = async (req, res) => {
             .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
+        const populatedTasks = await populateMultipleTasksResponsible(tasks);
 
-        res.status(200).json({ success: true, data: tasks });
+        res.status(200).json({ success: true, data: populatedTasks });
     } catch (error) {
         console.error('Error fetching tasks:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
@@ -27,8 +29,9 @@ exports.getInProgressTasks = async (req, res) => {
             .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
+        const populatedTasks = await populateMultipleTasksResponsible(tasks);
 
-        res.status(200).json({ success: true, data: tasks });
+        res.status(200).json({ success: true, data: populatedTasks });
     }
     catch (error) {
         console.error('Error fetching tasks:', error);
@@ -45,8 +48,9 @@ exports.getCompletedTasks = async (req, res) => {
             .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
+        const populatedTasks = await populateMultipleTasksResponsible(tasks);
 
-        res.status(200).json({ success: true, data: tasks });
+        res.status(200).json({ success: true, data: populatedTasks });
     }
     catch (error) {
         console.error('Error fetching tasks:', error);
@@ -63,7 +67,8 @@ exports.getToDoTasks = async (req, res) => {
             .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
-        res.status(200).json({ success: true, data: tasks });
+        const populatedTasks = await populateMultipleTasksResponsible(tasks);
+        res.status(200).json({ success: true, data: populatedTasks });
     }
     catch (error) {
         console.error('Error fetching tasks:', error);
@@ -82,8 +87,9 @@ exports.getTasksByTeam = async (req, res) => {
             .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
+        const populatedTasks = await populateMultipleTasksResponsible(tasks);
 
-        res.status(200).json({ success: true, data: tasks });
+        res.status(200).json({ success: true, data: populatedTasks });
     }
     catch (error) {
         console.error('Error fetching tasks:', error);
@@ -102,8 +108,9 @@ exports.getTasksByMemberId = async (req, res) => {
             .populate('teamId', 'teamName')
             .limit(10)
             .sort({ createdAt: -1 });
+        const populatedTasks = await populateMultipleTasksResponsible(tasks);
 
-        res.status(200).json({ success: true, data: tasks });
+        res.status(200).json({ success: true, data: populatedTasks });
     }
     catch (error) {
         console.error('Error fetching tasks:', error);

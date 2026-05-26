@@ -19,6 +19,10 @@ const teamMemberSchema = new mongoose.Schema(
       enum: ["Developer", "Designer", "QA Engineer", "DevOps", "Product Manager", "Tester",
         "Adviser", "Leader", "Bench", "HR", "Sales", "Marketing", "Manager", "Member"],
       default: "Member",
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
     }
   },
   { timestamps: true }

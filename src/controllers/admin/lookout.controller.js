@@ -19,7 +19,7 @@ exports.lookOutTeamMembers = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
         const teamIds = await Team.find({ workspaceId }).select('_id');
-        const teamMembers = await TeamMember.find({ teamId: { $in: teamIds }, functionalRole: { $ne: "Leader" } }).populate('userId', 'name email');
+        const teamMembers = await TeamMember.find({ teamId: { $in: teamIds }, functionalRole: { $ne: "Leader" }, isDeleted: { $ne: true } }).populate('userId', 'name email');
         res.status(200).json({ success: true, data: teamMembers });
     } catch (error) {
         console.error('Error fetching team members:', error);
@@ -32,7 +32,7 @@ exports.lookoutLeaders = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
         // Available leaders (status: false means they are not currently leading a team)
-        const leaders = await User.find({ workspaceId, systemRole: "leader", status: false }).select('name email status');
+        const leaders = await User.find({ workspaceId, systemRole: "leader", status: false, isDeleted: { $ne: true } }).select('name email status');
         res.status(200).json({ success: true, data: leaders });
     } catch (error) {
         console.error('Error fetching leaders:', error);
@@ -45,7 +45,7 @@ exports.lookoutMembers = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
         // Available members (status: false means they are not currently in a team)
-        const members = await User.find({ workspaceId, systemRole: "member", status: false }).select('name email status');
+        const members = await User.find({ workspaceId, systemRole: "member", status: false, isDeleted: { $ne: true } }).select('name email status');
         res.status(200).json({ success: true, data: members });
     } catch (error) {
         console.error('Error fetching members:', error);

@@ -89,8 +89,6 @@ const postProcessMeetingOperations = async (meetingId, aiResponse) => {
             contextLable: contextLabel,
             presentAttendees: attendees.map((a) => ({
                 userId: a.user_id,
-                name: a.name,
-                functionalRole: a.functionalRole,
             })),
             workspaceId: meetingData.workspaceId,
             teamId: meetingData.teamId,
@@ -107,14 +105,12 @@ const postProcessMeetingOperations = async (meetingId, aiResponse) => {
 
         // ✅ SAVE TASKS
         for (const group of tasks) {
-            const { user_id, responsibleName, responsibleFunctionalRole, pending, in_progress, completed } = group;
+            const { user_id, pending, in_progress, completed } = group;
 
             for (const t of pending) {
                 await task.create({
                     title: t,
                     responsibleId: user_id,
-                    resposibleName: responsibleName,
-                    responsibleFunctionalRole,
                     state: "pending",
                     momId: momSaved._id,
                     workspaceId: meetingData.workspaceId,
@@ -126,8 +122,6 @@ const postProcessMeetingOperations = async (meetingId, aiResponse) => {
                 await task.create({
                     title: t,
                     responsibleId: user_id,
-                    resposibleName: responsibleName,
-                    responsibleFunctionalRole,
                     state: "in_progress",
                     momId: momSaved._id,
                     workspaceId: meetingData.workspaceId,
@@ -139,8 +133,6 @@ const postProcessMeetingOperations = async (meetingId, aiResponse) => {
                 await task.create({
                     title: t,
                     responsibleId: user_id,
-                    resposibleName: responsibleName,
-                    responsibleFunctionalRole,
                     state: "completed",
                     momId: momSaved._id,
                     workspaceId: meetingData.workspaceId,

@@ -7,11 +7,11 @@ exports.getTeams = async (req, res) => {
     try {
         const teamId = req.user.teamId;
 
-        const teamMembers = await TeamMember.find({ teamId })
+        const teamMembers = await TeamMember.find({ teamId, isDeleted: { $ne: true } })
             .populate({
                 path: 'userId',
                 select: 'name email status',
-                match: { status: true }
+                match: { status: true, isDeleted: { $ne: true } }
             });
 
         const activeTeamMembers = teamMembers.filter(m => m.userId).map(m => ({
@@ -49,7 +49,7 @@ exports.editTeamMemberRole = async (req, res) => {
         const teamId = req.user.teamId;
 
         const teamMemberResult = await TeamMember.findOneAndUpdate(
-            { userId: memberId, teamId },
+            { userId: memberId, teamId, isDeleted: { $ne: true } },
             { functionalRole: newRole },
             { new: true }
         ).populate('userId', 'name email');

@@ -1,5 +1,6 @@
 const Task = require("../../models/task.model");
 const TeamMember = require("../../models/teamMember.model");
+const { populateTaskResponsible, populateMultipleTasksResponsible } = require("../../utils/taskHelper");
 
 //need teamId and userId from req.user
 exports.getTasksList = async (req, res) => {
@@ -13,13 +14,14 @@ exports.getTasksList = async (req, res) => {
         const inProgressTasks = await Task.countDocuments({ teamId, responsibleId: userId, state: "in_progress" });
 
         const tasks = await Task.find({ teamId, responsibleId: userId }).sort({ createdAt: -1 });
+        const populatedTasks = await populateMultipleTasksResponsible(tasks);
 
         res.json({
             totalTasks,
             completedTasks,
             pendingTasks,
             inProgressTasks,
-            tasks
+            tasks: populatedTasks
         });
     } catch (error) {
         console.error("Error fetching tasks:", error);
@@ -40,8 +42,9 @@ exports.getTasksbyFilter = async (req, res) => {
         }
 
         const tasks = await Task.find({ teamId, responsibleId: userId, state: statusFilter }).sort({ createdAt: -1 });
+        const populatedTasks = await populateMultipleTasksResponsible(tasks);
 
-        res.json(tasks);
+        res.json(populatedTasks);
     } catch (error) {
         console.error("Error fetching tasks by filter:", error);
         res.status(500).json({ message: "Failed to fetch tasks by filter" });
@@ -64,8 +67,6 @@ exports.assignTask = async (req, res) => {
 
         const newTask = new Task({
             title: taskTitle,
-            resposibleName: assignedTo.userId.name,
-            responsibleFunctionalRole: assignedTo.functionalRole,
             responsibleId: assignedTo.userId._id,
             state: "pending",
             momId: null,
@@ -74,7 +75,8 @@ exports.assignTask = async (req, res) => {
         });
 
         await newTask.save();
-        res.status(201).json({ message: "Task created successfully", task: newTask });
+        const populatedTask = await populateTaskResponsible(newTask);
+        res.status(201).json({ message: "Task created successfully", task: populatedTask });
     } catch (error) {
         console.error("Error creating task:", error);
         res.status(500).json({ message: "Failed to create task" });
@@ -94,7 +96,8 @@ exports.renameTask = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Task not found' });
         }
 
-        res.status(200).json({ success: true, data: updatedTask });
+        const populatedTask = await populateTaskResponsible(updatedTask);
+        res.status(200).json({ success: true, data: populatedTask });
     } catch (error) {
         console.error('Error renaming task:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
@@ -111,7 +114,8 @@ exports.deleteTask = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Task not found' });
         }
 
-        res.status(200).json({ success: true, data: deletedTask });
+        const populatedTask = await populateTaskResponsible(deletedTask);
+        res.status(200).json({ success: true, data: populatedTask });
     } catch (error) {
         console.error('Error deleting task:', error);
         res.status(500).json({ success: false, message: 'Server Error' });

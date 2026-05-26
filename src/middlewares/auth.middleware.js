@@ -16,7 +16,7 @@ exports.auth = async (req, res, next) => {
 
         //if user is non admin and non bench then attach teamId to decoded
         if (decoded.systemRole !== "admin" && decoded.systemRole !== "bench") {
-            const teamMemberInfo = await teamMember.findOne({ userId: decoded.id });
+            const teamMemberInfo = await teamMember.findOne({ userId: decoded.id, isDeleted: { $ne: true } });
             if (!teamMemberInfo) {
                 return res.status(404).json({ message: "User is not a member of any team" });
             }
@@ -35,7 +35,7 @@ exports.auth = async (req, res, next) => {
 exports.isAdmin = async (req, res, next) => {
     try {
         const userId = req.user.id; // Assuming user ID is available in req.user from auth middleware
-        const currentUser = await user.findOne({ _id: userId }).select('-password');
+        const currentUser = await user.findOne({ _id: userId, isDeleted: { $ne: true } }).select('-password');
 
         if (!currentUser) {
             return res.status(404).json({ message: "User not found" });
@@ -80,7 +80,7 @@ exports.isTeamMember = async (req, res, next) => {
         }
 
         //check if user is a member of the team
-        const currentUser = await teamMember.findOne({ userId, teamId });
+        const currentUser = await teamMember.findOne({ userId, teamId, isDeleted: { $ne: true } });
         if (!currentUser) {
             return res.status(404).json({ message: "User is not a member of the team" });
         }

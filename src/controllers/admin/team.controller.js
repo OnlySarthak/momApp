@@ -16,7 +16,7 @@ exports.getTeamsList = async (req, res) => {
 
         const teams = await Team.find({ workspaceId });
         const teamDetails = await Promise.all(teams.map(async (team) => {
-            const memberData = await TeamMember.find({ teamId: team._id }).populate("userId", "name");
+            const memberData = await TeamMember.find({ teamId: team._id, isDeleted: { $ne: true } }).populate("userId", "name");
             const teamTaskData = await TeamStats.findOne({ teamId: team._id }).select("TeamProductivityScore completedTasks");
 
             return {
@@ -98,7 +98,7 @@ exports.getTeamDetails = async (req, res) => {
             return res.status(404).json({ message: "Team not found." });
         }
 
-        const teamMembers = await TeamMember.find({ teamId }).populate("userId", "name email systemRole");
+        const teamMembers = await TeamMember.find({ teamId, isDeleted: { $ne: true } }).populate("userId", "name email systemRole");
         const teamStatsData = await TeamStats.findOne({ teamId });
         const teamTasksData = await Task.find({ teamId }).limit(5).sort({ updatedAt: -1 });
         const recentMeetings = await Meeting.find({ teamId }).sort({ meetingDate: -1 }).limit(5);
@@ -144,9 +144,9 @@ exports.addTeamMember = async (req, res) => {
 
         let user;
         if (userId) {
-            user = await User.findById(userId);
+            user = await User.findOne({ _id: userId, isDeleted: { $ne: true } });
         } else if (userEmail) {
-            user = await User.findOne({ email: userEmail, workspaceId: req.user.workspaceId });
+            user = await User.findOne({ email: userEmail, workspaceId: req.user.workspaceId, isDeleted: { $ne: true } });
         } else {
             return res.status(400).json({ message: "User ID or Email is required." });
         }
@@ -158,18 +158,20 @@ exports.addTeamMember = async (req, res) => {
         // Check if the user is already a member of the team
         const existingTeamMember = await TeamMember.findOne({ teamId, userId: user._id });
         if (existingTeamMember) {
-            return res.status(400).json({ message: "User is already a member of this team." });
+            if (!existingTeamMember.isDeleted) {
+                return res.status(400).json({ message: "User is already a member of this team." });
+            }
+            existingTeamMember.isDeleted = false;
+            existingTeamMember.functionalRole = "Member";
+            await existingTeamMember.save();
+        } else {
+            // Create team member entry - functionalRole defaults to "Member" in schema
+            const newTeamMember = new TeamMember({
+                teamId,
+                userId: user._id
+            });
+            await newTeamMember.save();
         }
-
-        // Update user status to true (active)
-        await User.findByIdAndUpdate(user._id, { status: true });
-
-        // Create team member entry - functionalRole defaults to "Member" in schema
-        const newTeamMember = new TeamMember({
-            teamId,
-            userId: user._id
-        });
-        await newTeamMember.save();
 
         res.status(201).json({ message: "User added to team successfully." });
     }
@@ -192,13 +194,13 @@ exports.removeTeamMember = async (req, res) => {
         }
 
         // Remove team member entry
-        const removedMember = await TeamMember.findOneAndDelete({ teamId, userId });
+        const removedMember = await TeamMember.findOneAndUpdate({ teamId, userId, isDeleted: { $ne: true } }, { isDeleted: true }, { new: true });
         if (!removedMember) {
             return res.status(404).json({ message: "Team member not found." });
         }
 
         // Check if the user is a member of any OTHER teams
-        const otherTeams = await TeamMember.findOne({ userId, teamId: { $ne: teamId } });
+        const otherTeams = await TeamMember.findOne({ userId, teamId: { $ne: teamId }, isDeleted: { $ne: true } });
         if (!otherTeams) {
             // If they are not in any other teams, set status to false (inactive)
             await User.findByIdAndUpdate(userId, { status: false });
@@ -250,10 +252,10 @@ exports.replaceTeamLeader = async (req, res) => {
         // 1. Handle Old Leader
         const oldLeaderId = teamData.leaderId;
         if (oldLeaderId) {
-            await TeamMember.findOneAndDelete({ teamId, userId: oldLeaderId });
+            await TeamMember.findOneAndUpdate({ teamId, userId: oldLeaderId, isDeleted: { $ne: true } }, { isDeleted: true });
 
             // Only deactivate if they aren't in any OTHER teams
-            const otherTeams = await TeamMember.findOne({ userId: oldLeaderId, teamId: { $ne: teamId } });
+            const otherTeams = await TeamMember.findOne({ userId: oldLeaderId, teamId: { $ne: teamId }, isDeleted: { $ne: true } });
             if (!otherTeams) {
                 await User.findByIdAndUpdate(oldLeaderId, { status: false });
             }
@@ -271,7 +273,7 @@ exports.replaceTeamLeader = async (req, res) => {
         // Ensure they aren't already listed as a member in this team (to avoid duplicate index error)
         await TeamMember.findOneAndUpdate(
             { teamId, userId: newLeader._id },
-            { functionalRole: "Leader" },
+            { functionalRole: "Leader", isDeleted: false },
             { upsert: true, new: true }
         );
 

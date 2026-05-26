@@ -4,7 +4,7 @@ const TeamMember = require("../../models/teamMember.model");
 exports.lookOutTeamMembers = async (req, res) => {
     try {
         const teamId = req.user.teamId;
-        const teamMembers = await TeamMember.find({ teamId, functionalRole: { $ne: "Leader" } })
+        const teamMembers = await TeamMember.find({ teamId, functionalRole: { $ne: "Leader" }, isDeleted: { $ne: true } })
             .populate({
                 path: 'userId',
                 select: 'name email status',

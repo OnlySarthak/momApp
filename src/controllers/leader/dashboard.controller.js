@@ -22,11 +22,11 @@ exports.getDashboardData = async (req, res) => {
 
         const teamStats = await TeamStats.findOne({ teamId });
 
-        const teamMembers = await TeamMember.find({ teamId })
+        const teamMembers = await TeamMember.find({ teamId, isDeleted: { $ne: true } })
             .populate({
                 path: 'userId',
                 select: 'name status',
-                match: { status: true } // Only include active users
+                match: { status: true, isDeleted: { $ne: true } } // Only include active users
             });
 
         // Filter out members where userId is null (because of the match filter)
