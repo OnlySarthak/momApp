@@ -1,5 +1,7 @@
 const Suggestion = require("../../models/suggestion.model");
 const MOM = require("../../models/mom.model");
+const { checkNoOfSuggestionsPerMeeting } = require("../../utils/limitChecker");
+const LimitExceededError = require("../../utils/LimitExceededError");
 
 //need teamId from req.user
 exports.getSuggestionsByMember = async (req, res) => {
@@ -28,6 +30,9 @@ exports.createSuggestion = async (req, res) => {
             return res.status(404).json({ success: false, message: "MOM not found" });
         }
 
+        // Check suggestion limit for this MOM before creating
+        await checkNoOfSuggestionsPerMeeting(momId);
+
         const newSuggestion = new Suggestion({
             momId,
             suggestionText: content,
@@ -40,6 +45,15 @@ exports.createSuggestion = async (req, res) => {
         res.status(201).json({ success: true, message: "Suggestion submitted successfully", data: newSuggestion });
     } catch (error) {
         console.error("Error creating suggestion:", error);
+        if (error instanceof LimitExceededError) {
+            return res.status(error.statusCode).json({
+                success: false,
+                message: error.message,
+                limitType: error.limitType,
+                maxLimit: error.maxLimit,
+                currentCount: error.currentCount
+            });
+        }
         res.status(500).json({ success: false, message: "Server error" });
     }
 };

@@ -2,6 +2,8 @@ const Team = require("../../models/team.model");
 const TeamMember = require("../../models/teamMember.model");
 const User = require("../../models/user.model");
 const bcrypt = require("bcrypt");
+const { checkNoOfUserPerWorkspace } = require("../../utils/limitChecker");
+const LimitExceededError = require("../../utils/LimitExceededError");
 
 //get all members of a workspace
 exports.getWorkspaceMembersList = async (req, res) => {
@@ -156,6 +158,9 @@ exports.addUser = async (req, res) => {
             }
         }
 
+        // Check workspace user limit before creating
+        await checkNoOfUserPerWorkspace(workspaceId);
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const newUser = new User({
@@ -171,6 +176,14 @@ exports.addUser = async (req, res) => {
         res.status(201).json({ message: "User added successfully.", user: { id: newUser._id, name, email, systemRole } });
     } catch (error) {
         console.error("Error adding user:", error);
+        if (error instanceof LimitExceededError) {
+            return res.status(error.statusCode).json({
+                message: error.message,
+                limitType: error.limitType,
+                maxLimit: error.maxLimit,
+                currentCount: error.currentCount
+            });
+        }
         res.status(500).json({ message: error.message || "Server error while adding user." });
     }
 };

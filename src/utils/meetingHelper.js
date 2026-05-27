@@ -1,9 +1,9 @@
-const meeting = require("../../models/meeting.model");
-const teamMember = require("../../models/teamMember.model");
-const mom = require("../../models/mom.model");
-const task = require("../../models/task.model");
-const teamStats = require("../../models/teams.stats.model");
-const transcriptModel = require("../../models/transcript.model");
+const meeting = require("../models/meeting.model");
+const teamMember = require("../models/teamMember.model");
+const mom = require("../models/mom.model");
+const task = require("../models/task.model");
+const teamStats = require("../models/teams.stats.model");
+const transcriptModel = require("../models/transcript.model");
 const { GoogleGenAI } = require("@google/genai");
 
 exports.startMeetingProcessingInBackground = async (meetingId, audioFileUrl) => {
@@ -15,7 +15,7 @@ exports.startMeetingProcessingInBackground = async (meetingId, audioFileUrl) => 
         });
 
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-pro",
+            model: "gemini-3.5-flash",
             contents: [
                 {
                     role: "user",

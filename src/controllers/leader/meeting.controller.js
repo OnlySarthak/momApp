@@ -6,6 +6,8 @@ const User = require("../../models/user.model");
 const { timeFrameToDate } = require("../../utils/timeFrameToData");
 const { populateMomAttendees } = require("../../utils/momHelper");
 const { addMeetingToQueue } = require("../../queues/meetingQueue");
+const { checkNoOfMeetingsPerWorkspace } = require("../../utils/limitChecker");
+const LimitExceededError = require("../../utils/LimitExceededError");
 
 exports.passWorkspaceIdAndTeamId = async (req, res) => {
     try {
@@ -62,6 +64,9 @@ exports.initiateMeeting = async (req, res) => {
             return res.status(400).json({ message: "Title, Project Name and Agenda are required" });
         }
 
+        // Check workspace meeting limit before creating
+        await checkNoOfMeetingsPerWorkspace(req.user.workspaceId);
+
         const newMeeting = new Meeting({
             workspaceId: req.user.workspaceId,
             teamId: req.user.teamId,
@@ -79,6 +84,14 @@ exports.initiateMeeting = async (req, res) => {
         res.status(201).json({ message: "Meeting initiated successfully", meetingId: savedMeeting._id });
     } catch (error) {
         console.error("Error initiating meeting:", error);
+        if (error instanceof LimitExceededError) {
+            return res.status(error.statusCode).json({
+                message: error.message,
+                limitType: error.limitType,
+                maxLimit: error.maxLimit,
+                currentCount: error.currentCount
+            });
+        }
         res.status(500).json({ message: "Failed to initiate meeting" });
     }
 };

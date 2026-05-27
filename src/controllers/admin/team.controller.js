@@ -4,6 +4,11 @@ const TeamStats = require("../../models/teams.stats.model");
 const User = require("../../models/user.model");
 const Task = require("../../models/task.model");
 const Meeting = require("../../models/meeting.model");
+const MOM = require("../../models/mom.model");
+const Transcript = require("../../models/transcript.model");
+const Suggestion = require("../../models/suggestion.model");
+const { checkNoOfTeamsPerWorkspace, checkNoOfTeamMembersPerTeam } = require("../../utils/limitChecker");
+const LimitExceededError = require("../../utils/LimitExceededError");
 
 //need workspaceId from req.user
 exports.getTeamsList = async (req, res) => {
@@ -51,6 +56,9 @@ exports.addTeam = async (req, res) => {
             return res.status(400).json({ message: "Team name and leader ID are required." });
         }
 
+        // Check workspace team limit before creating
+        await checkNoOfTeamsPerWorkspace(workspaceId);
+
         const newTeam = new Team({
             workspaceId,
             teamName,
@@ -82,6 +90,14 @@ exports.addTeam = async (req, res) => {
         });
     } catch (error) {
         console.error("Error creating team:", error);
+        if (error instanceof LimitExceededError) {
+            return res.status(error.statusCode).json({
+                message: error.message,
+                limitType: error.limitType,
+                maxLimit: error.maxLimit,
+                currentCount: error.currentCount
+            });
+        }
         res.status(500).json({ message: error.message || "Server error while creating team." });
     }
 };
@@ -155,6 +171,9 @@ exports.addTeamMember = async (req, res) => {
             return res.status(404).json({ message: "User not found." });
         }
 
+        // Check team member limit before adding
+        await checkNoOfTeamMembersPerTeam(teamId);
+
         // Check if the user is already a member of the team
         const existingTeamMember = await TeamMember.findOne({ teamId, userId: user._id });
         if (existingTeamMember) {
@@ -173,10 +192,24 @@ exports.addTeamMember = async (req, res) => {
             await newTeamMember.save();
         }
 
+        // Update user status to active since they are added to a team
+        if (user.status !== true) {
+            user.status = true;
+            await user.save();
+        }
+
         res.status(201).json({ message: "User added to team successfully." });
     }
     catch (error) {
         console.error("Error adding member:", error);
+        if (error instanceof LimitExceededError) {
+            return res.status(error.statusCode).json({
+                message: error.message,
+                limitType: error.limitType,
+                maxLimit: error.maxLimit,
+                currentCount: error.currentCount
+            });
+        }
         res.status(500).json({ message: error.message || "Server error while adding member." });
     }
 };
@@ -188,7 +221,7 @@ exports.removeTeamMember = async (req, res) => {
     try {
         const teamId = req.params.teamId;
         const userId = req.params.userId;
-        
+
         if (!teamId || !userId || userId === "undefined") {
             return res.status(400).json({ message: "Valid Team ID and User ID are required." });
         }
@@ -289,5 +322,85 @@ exports.replaceTeamLeader = async (req, res) => {
     catch (error) {
         console.error("Error replacing team leader:", error);
         res.status(500).json({ message: error.message || "Server error while replacing team leader." });
+    }
+};
+
+// Delete team and all associated data
+exports.deleteTeam = async (req, res) => {
+    try {
+        const teamId = req.params.teamId;
+        if (!teamId) {
+            return res.status(400).json({ message: "Team ID is required." });
+        }
+
+        const team = await Team.findById(teamId);
+        if (!team) {
+            return res.status(404).json({ message: "Team not found." });
+        }
+
+        // 1. Find all active team members (not deleted)
+        const teamMembers = await TeamMember.find({ teamId, isDeleted: { $ne: true } });
+
+        // 2. Check each member's user status: if not in any other active team, set status to false
+        for (const member of teamMembers) {
+            const userId = member.userId;
+            if (userId) {
+                const otherTeams = await TeamMember.findOne({
+                    userId,
+                    teamId: { $ne: teamId },
+                    isDeleted: { $ne: true }
+                });
+                if (!otherTeams) {
+                    await User.findByIdAndUpdate(userId, { status: false });
+                }
+            }
+        }
+
+        // 3. Handle leader's status separately: check if leader is in other teams
+        if (team.leaderId) {
+            const otherLeaderTeams = await TeamMember.findOne({
+                userId: team.leaderId,
+                teamId: { $ne: teamId },
+                isDeleted: { $ne: true }
+            });
+            if (!otherLeaderTeams) {
+                await User.findByIdAndUpdate(team.leaderId, { status: false });
+            }
+        }
+
+        // 4. Fetch meetings to delete MOMs, Transcripts, and Suggestions
+        const meetings = await Meeting.find({ teamId });
+        const meetingIds = meetings.map(m => m._id);
+
+        if (meetingIds.length > 0) {
+            // Find MOM IDs to delete suggestions
+            const moms = await MOM.find({ meetingId: { $in: meetingIds } });
+            const momIds = moms.map(mom => mom._id);
+
+            if (momIds.length > 0) {
+                await Suggestion.deleteMany({ momId: { $in: momIds } });
+            }
+
+            await Transcript.deleteMany({ meetingId: { $in: meetingIds } });
+            await MOM.deleteMany({ meetingId: { $in: meetingIds } });
+            await Meeting.deleteMany({ teamId });
+        }
+
+        // 5. Delete Tasks associated with the team
+        await Task.deleteMany({ teamId });
+
+        // 6. Delete TeamStats associated with the team
+        await TeamStats.deleteOne({ teamId });
+
+        // 7. Delete TeamMembers mapping
+        await TeamMember.deleteMany({ teamId });
+
+        // 8. Delete the Team itself
+        await Team.deleteOne({ _id: teamId });
+
+        res.status(200).json({ message: "Team and all associated data deleted successfully." });
+    } catch (error) {
+        console.error("Error deleting team:", error);
+        res.status(500).json({ message: error.message || "Server error while deleting team." });
     }
 };

@@ -1,6 +1,8 @@
 const Task = require("../../models/task.model");
 const TeamMember = require("../../models/teamMember.model");
 const { populateTaskResponsible, populateMultipleTasksResponsible } = require("../../utils/taskHelper");
+const { checkNoOfTasksPerUser } = require("../../utils/limitChecker");
+const LimitExceededError = require("../../utils/LimitExceededError");
 
 //need teamId from req.user
 exports.getTasksList = async (req, res) => {
@@ -98,6 +100,9 @@ exports.assignTask = async (req, res) => {
             return res.status(404).json({ message: "Assigned user not found in the team" });
         }
 
+        // Check task limit for the assigned user before creating
+        await checkNoOfTasksPerUser(assignedTo.userId._id);
+
         const newTask = new Task({
             title: taskTitle,
             responsibleId: assignedTo.userId._id,
@@ -112,6 +117,14 @@ exports.assignTask = async (req, res) => {
         res.status(201).json({ message: "Task created successfully", task: populatedTask });
     } catch (error) {
         console.error("Error creating task:", error);
+        if (error instanceof LimitExceededError) {
+            return res.status(error.statusCode).json({
+                message: error.message,
+                limitType: error.limitType,
+                maxLimit: error.maxLimit,
+                currentCount: error.currentCount
+            });
+        }
         res.status(500).json({ message: "Failed to create task" });
     }
 };

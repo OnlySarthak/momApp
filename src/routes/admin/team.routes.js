@@ -9,7 +9,8 @@ const {
   getTeamDetails,
   addTeamMember,
   removeTeamMember,
-  replaceTeamLeader
+  replaceTeamLeader,
+  deleteTeam
 } = require("../../controllers/admin/team.controller");
 
 // Apply authentication and admin authorization
@@ -20,6 +21,7 @@ router.use(isAdmin);
 router.get("/", getTeamsList);
 router.post("/", addTeam);
 router.get("/:teamId", getTeamDetails);
+router.delete("/:teamId", deleteTeam);
 router.post("/:teamId/members", addTeamMember);
 router.delete("/:teamId/members/:userId", removeTeamMember);
 router.put("/:teamId/leader", replaceTeamLeader);

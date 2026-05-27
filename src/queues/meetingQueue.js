@@ -1,5 +1,5 @@
 const { Queue, Worker } = require("bullmq");
-const { startMeetingProcessingInBackground } = require("../controllers/leader/meetingHelper");
+const { startMeetingProcessingInBackground } = require("../utils/meetingHelper");
 const Meeting = require("../models/meeting.model");
 
 const redisConnection = {

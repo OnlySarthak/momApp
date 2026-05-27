@@ -4,6 +4,8 @@ const Suggestion = require("../../models/suggestion.model");
 const { timeFrameToDate } = require("../../utils/timeFrameToData");
 const { populateMomAttendees, populateMultipleMomsAttendees } = require("../../utils/momHelper");
 const { populateMultipleTasksResponsible } = require("../../utils/taskHelper");
+const { checkNoOfSuggestionsPerMeeting } = require("../../utils/limitChecker");
+const LimitExceededError = require("../../utils/LimitExceededError");
 
 //need teamId from req.user
 //need filter from req.query
@@ -82,6 +84,9 @@ exports.sendSuggestion = async (req, res) => {
             return res.status(404).json({ success: false, message: 'MOM not found' });
         }
 
+        // Check suggestion limit for this MOM before creating
+        await checkNoOfSuggestionsPerMeeting(id);
+
         const newSuggestion = new Suggestion({
             momId: id, // Suggestion model uses momId
             suggestionText: content,
@@ -93,6 +98,15 @@ exports.sendSuggestion = async (req, res) => {
         res.status(201).json({ success: true, data: newSuggestion });
     } catch (error) {
         console.error('Error sending suggestion:', error);
+        if (error instanceof LimitExceededError) {
+            return res.status(error.statusCode).json({
+                success: false,
+                message: error.message,
+                limitType: error.limitType,
+                maxLimit: error.maxLimit,
+                currentCount: error.currentCount
+            });
+        }
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
